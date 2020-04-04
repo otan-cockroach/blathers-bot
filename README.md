@@ -16,9 +16,10 @@ python3 main.py
 ```
 curl localhost:5000/webhook -H 'X-Github-Event: <event>' --header "Content-Type:application/json" --data '<data>'
 ```
-
-Example data is available in `example_webhooks/`
-
+* Example data is available in `example_webhooks/`. You can run curl with them:
+```
+curl localhost:5000/webhook -H 'X-Github-Event: pull_request'  --header "Content-Type:application/json" --data "@./example_webhooks/app_webhook_synchronize"
+```
 
 ## Blathers Inspiration
 > "Eeek! A bug...! Ah, I beg your pardon! I just don't like handling these things much!"
