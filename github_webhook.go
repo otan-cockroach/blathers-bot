@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v30/github"
 )
@@ -32,6 +33,10 @@ func (lb listBuilder) addf(item string, fmts ...interface{}) listBuilder {
 // HandleGithubWebhook handles a Github based webhook.
 func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
+	t := time.Now()
+	defer func() {
+		log.Printf("[%s] time: %s", r.Header.Get("X-GitHub-Delivery"), time.Now().Sub(t))
+	}()
 
 	var payload []byte
 	var err error
@@ -130,35 +135,30 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 		// But this is also experimental....
 		if len(numbers) == 0 {
 			log.Printf("sha %s: unable to find using ListPRsWithCommit, using fallback", event.GetSHA())
-			more = true
 			opts = &github.PullRequestListOptions{
-				State: "open",
+				State:     "open",
+				Sort:      "updated",
+				Direction: "desc",
 				ListOptions: github.ListOptions{
 					PerPage: 100,
 				},
 			}
-			for more && len(numbers) == 0 {
-				prs, resp, err := ghClient.PullRequests.List(
-					ctx,
-					event.GetRepo().GetOwner().GetLogin(),
-					event.GetRepo().GetName(),
-					opts,
-				)
-				if err != nil {
-					return fmt.Errorf("sha %s: error fetching pull requests using List", event.GetSHA())
-				}
+			// Only process one page.
+			prs, _, err := ghClient.PullRequests.List(
+				ctx,
+				event.GetRepo().GetOwner().GetLogin(),
+				event.GetRepo().GetName(),
+				opts,
+			)
+			if err != nil {
+				return fmt.Errorf("sha %s: error fetching pull requests using List", event.GetSHA())
+			}
 
-				for _, pr := range prs {
-					if pr.GetHead().GetSHA() == event.GetSHA() {
-						numbers = append(numbers, pr.GetNumber())
-						// Only take the first one for now.
-						break
-					}
-				}
-
-				more = resp.NextPage != 0
-				if more {
-					opts.Page = resp.NextPage
+			for _, pr := range prs {
+				if pr.GetHead().GetSHA() == event.GetSHA() {
+					numbers = append(numbers, pr.GetNumber())
+					// Only take the first one for now.
+					break
 				}
 			}
 		}
@@ -223,7 +223,7 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 			}
 			log.Printf("[Webhook][#%d] status updated", number)
 		}
-
+		log.Printf("sha %s: complete", event.GetSHA())
 		return nil
 	},
 }
