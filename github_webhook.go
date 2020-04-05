@@ -93,7 +93,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		installationID(event.Installation.GetID()),
 	)
 
-	isMember, err := isMember(
+	isMember, err := isOrgMember(
 		ctx,
 		ghClient,
 		event.GetRepo().GetOwner().GetLogin(),
@@ -165,55 +165,65 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		builder.addParagraphf("Before a member of our team reviews your PR, I have a few suggestions for tidying it up for review:\n%s", ais.String())
 	}
 
-	// TODO(otan): scan for adding reviewers.
 	if len(event.GetPullRequest().RequestedReviewers) == 0 {
-		mentionedIssues := findMentionedIssues(
+		// If there are no requested reviewers, check whether there are any reviews.
+		// If there have been, that means someone is already on it.
+		if hasReviews, err := hasReviews(
+			ctx,
+			ghClient,
 			event.GetRepo().GetOwner().GetLogin(),
 			event.GetRepo().GetName(),
-			event.GetPullRequest().GetBody(),
-		)
-		participantToReasons := make(map[string][]string)
-		for _, iss := range mentionedIssues {
-			participantToReason, err := findParticipants(
-				ctx,
-				ghClient,
+			event.GetNumber(),
+		); err != nil {
+			return err
+		} else if !hasReviews {
+			mentionedIssues := findMentionedIssues(
 				event.GetRepo().GetOwner().GetLogin(),
 				event.GetRepo().GetName(),
-				iss.number,
+				event.GetPullRequest().GetBody(),
 			)
+			participantToReasons := make(map[string][]string)
+			for _, iss := range mentionedIssues {
+				participantToReason, err := findParticipants(
+					ctx,
+					ghClient,
+					event.GetRepo().GetOwner().GetLogin(),
+					event.GetRepo().GetName(),
+					iss.number,
+				)
+				if err != nil {
+					return err
+				}
+				for participant, reason := range participantToReason {
+					participantToReasons[participant] = append(participantToReasons[participant], reason)
+				}
+			}
+
+			// Filter out anyone not in the organization.
+			orgMembers, err := getOrganizationLogins(ctx, ghClient, event.GetRepo().GetOwner().GetLogin())
 			if err != nil {
 				return err
 			}
-			for participant, reason := range participantToReason {
-				participantToReasons[participant] = append(participantToReasons[participant], reason)
+			for author := range participantToReasons {
+				if _, ok := orgMembers[author]; !ok || author == event.GetSender().GetLogin() {
+					delete(participantToReasons, author)
+				}
 			}
-		}
 
-		// Filter out anyone not in the organization.
-		// TODO(otan): batch this by listing organization members instead.
-		orgMembers, err := getOrganizationLogins(ctx, ghClient, event.GetRepo().GetOwner().GetLogin())
-		if err != nil {
-			return err
-		}
-		for author := range participantToReasons {
-			if _, ok := orgMembers[author]; !ok || author == event.GetSender().GetName() {
-				delete(participantToReasons, author)
-			}
-		}
-
-		if len(participantToReasons) == 0 {
-			builder.addParagraph(`I was unable to automatically find a reviewer. You can try CCing one of the following members:
+			if len(participantToReasons) == 0 {
+				builder.addParagraph(`I was unable to automatically find a reviewer. You can try CCing one of the following members:
 * A person you worked with closely on this PR.
 * The person who created the ticket, or a [CRDB organization member](https://github.com/orgs/cockroachdb/people) involved with the ticket (author, commenter, etc.).
 * Join our [community slack channel](https://cockroa.ch/slack) and ask on #contributors.
 * Try find someone else from [here](https://github.com/orgs/cockroachdb/people).`)
-		} else {
-			var reviewerReasons listBuilder
-			for author, reasons := range participantToReasons {
-				reviewerReasons = reviewerReasons.addf("@%s (%s)", author, strings.Join(reasons, ", "))
-				builder.addReviewer(author)
+			} else {
+				var reviewerReasons listBuilder
+				for author, reasons := range participantToReasons {
+					reviewerReasons = reviewerReasons.addf("@%s (%s)", author, strings.Join(reasons, ", "))
+					builder.addReviewer(author)
+				}
+				builder.addParagraphf("I have added a few people who may be able to assist in reviewing:\n%s", reviewerReasons.String())
 			}
-			builder.addParagraphf("I have added a few people who may be able to assist in reviewing:\n%s", reviewerReasons.String())
 		}
 	}
 

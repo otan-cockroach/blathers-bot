@@ -7,8 +7,8 @@ import (
 	"github.com/google/go-github/github"
 )
 
-// isMember returns whether a member is part of the given organization.
-func isMember(
+// isOrgMember returns whether a member is part of the given organization.
+func isOrgMember(
 	ctx context.Context, ghClient *github.Client, org string, login string,
 ) (bool, error) {
 	isMember, _, err := ghClient.Organizations.IsMember(ctx, org, login)
@@ -18,20 +18,33 @@ func isMember(
 	return isMember, err
 }
 
+// TODO: cache this.
 func getOrganizationLogins(
 	ctx context.Context, ghClient *github.Client, org string,
 ) (map[string]struct{}, error) {
 	logins := make(map[string]struct{})
-	members, _, err := ghClient.Organizations.ListMembers(
-		ctx,
-		org,
-		&github.ListMembersOptions{},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error listing org members: %s", err.Error())
+	opts := &github.ListMembersOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 200,
+		},
 	}
-	for _, member := range members {
-		logins[member.GetLogin()] = struct{}{}
+	more := true
+	for more {
+		members, resp, err := ghClient.Organizations.ListMembers(
+			ctx,
+			org,
+			opts,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error listing org members: %s", err.Error())
+		}
+		for _, member := range members {
+			logins[member.GetLogin()] = struct{}{}
+		}
+		more = resp.NextPage != 0
+		if more {
+			opts.Page = resp.NextPage
+		}
 	}
 	return logins, nil
 }

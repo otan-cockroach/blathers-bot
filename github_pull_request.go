@@ -52,12 +52,42 @@ func (prb *githubPullRequestIssueCommentBuilder) finish(
 func listCommitsInPR(
 	ctx context.Context, ghClient *github.Client, owner string, repo string, number int,
 ) ([]*github.RepositoryCommit, error) {
-	commits, _, err := ghClient.PullRequests.ListCommits(
+	more := true
+	opts := &github.ListOptions{}
+	var allCommits []*github.RepositoryCommit
+	for more {
+		commits, resp, err := ghClient.PullRequests.ListCommits(
+			ctx,
+			owner,
+			repo,
+			number,
+			opts,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error found listing commits in PR: %s", err.Error())
+		}
+		allCommits = append(allCommits, commits...)
+		more = resp.NextPage != 0
+		if more {
+			opts.Page = resp.NextPage
+		}
+	}
+	return allCommits, nil
+}
+
+// hasReviews returns whether there are reviewers on a given commit.
+func hasReviews(
+	ctx context.Context, ghClient *github.Client, owner string, repo string, number int,
+) (bool, error) {
+	reviews, _, err := ghClient.PullRequests.ListReviews(
 		ctx,
 		owner,
 		repo,
 		number,
 		&github.ListOptions{},
 	)
-	return commits, err
+	if err != nil {
+		return false, fmt.Errorf("erroring listing reviews: %s", err.Error())
+	}
+	return len(reviews) > 0, nil
 }

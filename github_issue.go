@@ -79,19 +79,27 @@ func findParticipants(
 	}
 
 	// Now find anyone who's commented
-	comments, _, err := ghClient.Issues.ListComments(
-		ctx,
-		owner,
-		repo,
-		issueNum,
-		&github.IssueListCommentsOptions{},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error getting listing issue comments for findParticipants: %s", err.Error())
-	}
+	opts := &github.IssueListCommentsOptions{}
+	more := true
+	for more {
+		comments, resp, err := ghClient.Issues.ListComments(
+			ctx,
+			owner,
+			repo,
+			issueNum,
+			opts,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error getting listing issue comments for findParticipants: %s", err.Error())
+		}
 
-	for _, comment := range comments {
-		addParticipant(comment.GetUser().GetLogin(), fmt.Sprintf("commented on %s", issueRef))
+		for _, comment := range comments {
+			addParticipant(comment.GetUser().GetLogin(), fmt.Sprintf("commented on %s", issueRef))
+		}
+		more = resp.NextPage != 0
+		if more {
+			opts.Page = resp.NextPage
+		}
 	}
 
 	return participants, nil
