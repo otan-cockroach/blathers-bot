@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v30/github"
 )
 
 // isOrgMember returns whether a member is part of the given organization.
@@ -25,7 +25,7 @@ func getOrganizationLogins(
 	logins := make(map[string]struct{})
 	opts := &github.ListMembersOptions{
 		ListOptions: github.ListOptions{
-			PerPage: 200,
+			PerPage: 100,
 		},
 	}
 	more := true

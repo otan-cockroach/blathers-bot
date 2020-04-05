@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v30/github"
 )
 
 type installationID int64
@@ -47,7 +47,7 @@ func (srv *blathersServer) fetchAccessToken(
 	})
 
 	var err error
-	token, _, err = gh.Apps.CreateInstallationToken(ctx, int64(id))
+	token, _, err = gh.Apps.CreateInstallationToken(ctx, int64(id), &github.InstallationTokenOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed getting installation token: %v", err)
 	}

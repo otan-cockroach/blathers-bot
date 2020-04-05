@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v30/github"
 )
 
 // listBuilder keeps track of action items needed to be done.
@@ -44,30 +44,152 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		w.WriteHeader(400)
 		fmt.Fprint(w, err.Error())
-		log.Printf("error: %s", err.Error())
+		log.Printf("[%s] error: %s", r.Header.Get("X-GitHub-Delivery"), err.Error())
 		return
 	}
 
 	event, err := github.ParseWebHook(github.WebHookType(r), payload)
 	if err != nil {
-		w.WriteHeader(400)
+		w.WriteHeader(500)
 		fmt.Fprint(w, err.Error())
-		log.Printf("error: %s", err.Error())
+		log.Printf("[%s] error: %s", r.Header.Get("X-GitHub-Delivery"), err.Error())
 		return
 	}
 	switch event := event.(type) {
 	case *github.PullRequestEvent:
-		err := srv.handlePullRequestWebhook(ctx, event)
-		if err != nil {
-			w.WriteHeader(400)
-			fmt.Fprint(w, err.Error())
-			log.Printf("error: %s", err.Error())
-			return
-		}
+		err = srv.handlePullRequestWebhook(ctx, event)
+	case *github.StatusEvent:
+		err = srv.handleStatus(ctx, event)
 	case *github.PingEvent:
 		fmt.Fprintf(w, "ok")
 	}
+	if err != nil {
+		w.WriteHeader(500)
+		fmt.Fprint(w, err.Error())
+		log.Printf("[%s] error: %s", r.Header.Get("X-GitHub-Delivery"), err.Error())
+		return
+	}
 	w.WriteHeader(200)
+}
+
+// handleStatus handles the status component of a webhook.
+func (srv *blathersServer) handleStatus(ctx context.Context, event *github.StatusEvent) error {
+	log.Printf("[Webhook] handling status update (%s, %s)", event.GetContext(), event.GetState())
+	handler, ok := statusHandlers[handlerKey{context: event.GetContext(), state: event.GetState()}]
+	if !ok {
+		return nil
+	}
+	return handler(ctx, srv, event)
+}
+
+type handlerKey struct {
+	context string
+	state   string
+}
+
+var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServer, event *github.StatusEvent) error{
+	{"GitHub CI (Cockroach)", "failure"}: func(ctx context.Context, srv *blathersServer, event *github.StatusEvent) error {
+		ghClient := srv.getGithubClientFromInstallation(
+			ctx,
+			installationID(event.Installation.GetID()),
+		)
+
+		// So we have a commit SHA, get the PRs.
+		opts := &github.PullRequestListOptions{}
+		more := true
+		numbers := []int{}
+		for more && len(numbers) == 0 {
+			prs, resp, err := ghClient.PullRequests.ListPullRequestsWithCommit(
+				ctx,
+				event.GetRepo().GetOwner().GetLogin(),
+				event.GetRepo().GetName(),
+				event.GetSHA(),
+				opts,
+			)
+			if err != nil {
+				return fmt.Errorf("sha %s: error fetching pull requests using ListPRsWithCommit", event.GetSHA())
+			}
+
+			for _, pr := range prs {
+				if pr.GetState() != "open" {
+					continue
+				}
+				number := pr.GetNumber()
+				numbers = append(numbers, number)
+				// Only take the first one for now.
+				break
+			}
+
+			more = resp.NextPage != 0
+			if more {
+				opts.Page = resp.NextPage
+			}
+		}
+
+		// The previous API is experimental. Let's find the real one using a hackier way.
+		// But this is also experimental....
+		if len(numbers) == 0 {
+			log.Printf("sha %s: unable to find using ListPRsWithCommit, using fallback", event.GetSHA())
+			more = true
+			opts = &github.PullRequestListOptions{
+				State: "open",
+				ListOptions: github.ListOptions{
+					PerPage: 100,
+				},
+			}
+			for more && len(numbers) > 0 {
+				prs, resp, err := ghClient.PullRequests.List(
+					ctx,
+					event.GetRepo().GetOwner().GetLogin(),
+					event.GetRepo().GetName(),
+					opts,
+				)
+				if err != nil {
+					return fmt.Errorf("sha %s: error fetching pull requests using List", event.GetSHA())
+				}
+
+				for _, pr := range prs {
+					if pr.GetHead().GetSHA() == event.GetSHA() {
+						numbers = append(numbers, pr.GetNumber())
+						// Only take the first one for now.
+						break
+					}
+				}
+
+				more = resp.NextPage != 0
+				if more {
+					opts.Page = resp.NextPage
+				}
+			}
+		}
+
+		log.Printf("sha %s: found PRs %#v", event.GetSHA(), numbers)
+		for _, number := range numbers {
+			builder := githubPullRequestIssueCommentBuilder{
+				reviewers: make(map[string]struct{}),
+				githubIssueCommentBuilder: githubIssueCommentBuilder{
+					owner:  event.GetRepo().GetOwner().GetLogin(),
+					repo:   event.GetRepo().GetName(),
+					number: number,
+				},
+			}
+
+			builder.addParagraphf(
+				":x: The [%s build](%s) has failed on [%s](%s).",
+				event.GetContext(),
+				event.GetTargetURL(),
+				event.GetSHA()[:8],
+				event.GetCommit().GetHTMLURL(),
+			)
+
+			if err := builder.finish(ctx, ghClient); err != nil {
+				return fmt.Errorf("#%d: failed to finish building issue comment: %v", number, err)
+			}
+			log.Printf("[Webhook][#%d] status updated", number)
+		}
+
+		return nil
+	},
 }
 
 // handlePullRequestWebhook handles the pull request component

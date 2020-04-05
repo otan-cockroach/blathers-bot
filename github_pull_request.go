@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v30/github"
 )
 
 // githubPullRequestIssueCommentBuilder wraps githubIssueCommentBuilder, adding PR-based issue
