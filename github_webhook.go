@@ -44,6 +44,7 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		w.WriteHeader(400)
 		fmt.Fprint(w, err.Error())
+		log.Printf("error: %s", err.Error())
 		return
 	}
 
@@ -51,6 +52,7 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		w.WriteHeader(400)
 		fmt.Fprint(w, err.Error())
+		log.Printf("error: %s", err.Error())
 		return
 	}
 	switch event := event.(type) {
@@ -59,6 +61,7 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 		if err != nil {
 			w.WriteHeader(400)
 			fmt.Fprint(w, err.Error())
+			log.Printf("error: %s", err.Error())
 			return
 		}
 	case *github.PingEvent:
@@ -100,8 +103,9 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		return err
 	}
 
-	if !isMember && event.GetSender().GetLogin() != "otan" {
+	if isMember && event.GetSender().GetLogin() != "otan" {
 		log.Printf("[Webhook][%#d] skipping as member is part of organization", event.GetNumber())
+		return nil
 	}
 
 	builder := githubPullRequestIssueCommentBuilder{
@@ -115,7 +119,9 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	// Send guidelines.
 	switch event.GetAction() {
 	case "opened":
-		if event.PullRequest.GetAuthorAssociation() == "FIRST_TIME_CONTRIBUTOR" {
+		if event.GetSender().GetLogin() == "otan" {
+			builder.addParagraph("Welcome back, creator. Thank you for testing me.")
+		} else if event.PullRequest.GetAuthorAssociation() == "FIRST_TIME_CONTRIBUTOR" {
 			builder.addParagraph("Thank you for contributing your first PR! Please ensure you have read the instructions for [creating your first PR](https://wiki.crdb.io/wiki/spaces/CRDB/pages/181633464/Your+first+CockroachDB+PR]).")
 		} else {
 			builder.addParagraph("Thank you for contributing to CockroachDB. Please ensure you have followed the guidelines for [creating a PR](https://wiki.crdb.io/wiki/spaces/CRDB/pages/181633464/Your+first+CockroachDB+PR]).")
@@ -159,11 +165,13 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	}
 
 	// TODO(otan): scan for adding reviewers.
-	builder.addParagraph(`We were unable to automatically find a reviewer. You can try CCing one of the following members:
+	if len(event.GetPullRequest().RequestedReviewers) == 0 {
+		builder.addParagraph(`We were unable to automatically find a reviewer. You can try CCing one of the following members:
 * A person you worked with closely on this PR.
 * The person who created the ticket, or a [CRDB organization member](https://github.com/orgs/cockroachdb/people) involved with the ticket (author, commenter, etc.).
 * Join our [community slack channel](https://cockroa.ch/slack) and ask on #contributors.
 * Try find someone else from [here](https://github.com/orgs/cockroachdb/people).`)
+	}
 
 	// We've compiled everything we want to happen. Send the message.
 	if err := builder.finish(ctx, ghClient); err != nil {
