@@ -3,6 +3,7 @@ package blathers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/go-github/github"
@@ -46,4 +47,52 @@ func (icb *githubIssueCommentBuilder) finish(ctx context.Context, ghClient *gith
 		&github.IssueComment{Body: &body},
 	)
 	return err
+}
+
+// findParticipants finds all participants belonging on the owner
+// on a given issue.
+// It returns a map of username -> participant text.
+// Prioritized as "author" > "assigned" > "commented in issue".
+func findParticipants(
+	ctx context.Context, ghClient *github.Client, owner string, repo string, issueNum int,
+) (map[string]string, error) {
+	participants := make(map[string]string)
+	addParticipant := func(author, reason string) {
+		if _, ok := participants[author]; !ok {
+			participants[author] = reason
+		}
+	}
+
+	// Find author and assigned members of the issue.
+	issue, _, err := ghClient.Issues.Get(ctx, owner, repo, issueNum)
+	if err != nil {
+		// Issue does not exist. We should not error here.
+		if err, ok := err.(*github.ErrorResponse); ok && err.Response.StatusCode == http.StatusNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error getting participant issue: %s", err.Error())
+	}
+	issueRef := fmt.Sprintf("%s/%s#%d", owner, repo, issueNum)
+	addParticipant(issue.GetUser().GetLogin(), fmt.Sprintf("author of %s", issueRef))
+	for _, assigned := range issue.Assignees {
+		addParticipant(assigned.GetLogin(), fmt.Sprintf("assigned to %s", issueRef))
+	}
+
+	// Now find anyone who's commented
+	comments, _, err := ghClient.Issues.ListComments(
+		ctx,
+		owner,
+		repo,
+		issueNum,
+		&github.IssueListCommentsOptions{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error getting listing issue comments for findParticipants: %s", err.Error())
+	}
+
+	for _, comment := range comments {
+		addParticipant(comment.GetUser().GetLogin(), fmt.Sprintf("commented on %s", issueRef))
+	}
+
+	return participants, nil
 }
