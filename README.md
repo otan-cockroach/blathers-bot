@@ -3,9 +3,7 @@
 ## Developing Locally
 
 * Get this code: `go get -u go/src/github.com/otan-cockroach/blathers-bot` 
-* Get access! You have two options:
-  * Get a GitHub Access Token, then export it: `export BLATHERS_GITHUB_ACCESS_TOKEN=<your token here>`
-  * Use the bot token. base64 encode the private key, then export it: `export BLATHERS_GITHUB_PRIVATE_KEY=<your token here>`.
+* `base64` encode the private key for the bot, then export it: `export BLATHERS_GITHUB_PRIVATE_KEY=<your token here>`.
 * Optionally set `BLATHERS_GITHUB_CLIENT_ID` if using a different app, and `BLATHERS_GITHUB_APP_SECRET` if the we should check the secret matches for the webhook.
 * Now can run the following to start the server
 ```

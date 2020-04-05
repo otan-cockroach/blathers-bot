@@ -162,7 +162,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		builder.addParagraph("My owl senses detect your PR is good for review. Please keep an eye out for any test failures in CI.")
 	} else {
 		ais = ais.add("When CI has completed, please ensure no errors have appeared.")
-		builder.addParagraphf("Before we review your PR, we have a few suggestions for tidying it up for review:\n%s", ais.String())
+		builder.addParagraphf("Before a member of our team reviews your PR, I have a few suggestions for tidying it up for review:\n%s", ais.String())
 	}
 
 	// TODO(otan): scan for adding reviewers.
@@ -202,7 +202,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		}
 
 		if len(participantToReasons) == 0 {
-			builder.addParagraph(`We were unable to automatically find a reviewer. You can try CCing one of the following members:
+			builder.addParagraph(`I was unable to automatically find a reviewer. You can try CCing one of the following members:
 * A person you worked with closely on this PR.
 * The person who created the ticket, or a [CRDB organization member](https://github.com/orgs/cockroachdb/people) involved with the ticket (author, commenter, etc.).
 * Join our [community slack channel](https://cockroa.ch/slack) and ask on #contributors.
@@ -213,7 +213,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 				reviewerReasons = reviewerReasons.addf("@%s (%s)", author, strings.Join(reasons, ", "))
 				builder.addReviewer(author)
 			}
-			builder.addParagraphf("We have added a few people who may be able to assist in reviewing:\n%s", reviewerReasons.String())
+			builder.addParagraphf("I have added a few people who may be able to assist in reviewing:\n%s", reviewerReasons.String())
 		}
 	}
 
