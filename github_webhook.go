@@ -165,6 +165,48 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 
 		log.Printf("sha %s: found PRs %#v", event.GetSHA(), numbers)
 		for _, number := range numbers {
+			// Avoid double posting - the status gets updated twice - once on first failure
+			// and once at the end..
+			str := fmt.Sprintf(
+				":x: The [%s build](%s) has failed on [%s](%s).",
+				event.GetContext(),
+				event.GetTargetURL(),
+				event.GetSHA()[:8],
+				event.GetCommit().GetHTMLURL(),
+			)
+			opts := &github.IssueListCommentsOptions{}
+			more := true
+			hasCommented := false
+			for more && !hasCommented {
+				comments, resp, err := ghClient.Issues.ListComments(
+					ctx,
+					event.GetRepo().GetOwner().GetLogin(),
+					event.GetRepo().GetName(),
+					number,
+					opts,
+				)
+				if err != nil {
+					return fmt.Errorf("error getting listing issue comments for status update: %s", err.Error())
+				}
+
+				for _, comment := range comments {
+					if strings.Contains(comment.GetBody(), str) {
+						hasCommented = true
+						break
+					}
+				}
+				more = resp.NextPage != 0
+				if more {
+					opts.Page = resp.NextPage
+				}
+			}
+
+			if hasCommented {
+				log.Printf("skipping %s because comment already made", event.GetSHA())
+				continue
+			}
+
+			// Build the message to send.
 			builder := githubPullRequestIssueCommentBuilder{
 				reviewers: make(map[string]struct{}),
 				githubIssueCommentBuilder: githubIssueCommentBuilder{
@@ -174,13 +216,7 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 				},
 			}
 
-			builder.addParagraphf(
-				":x: The [%s build](%s) has failed on [%s](%s).",
-				event.GetContext(),
-				event.GetTargetURL(),
-				event.GetSHA()[:8],
-				event.GetCommit().GetHTMLURL(),
-			)
+			builder.addParagraphf(str)
 
 			if err := builder.finish(ctx, ghClient); err != nil {
 				return fmt.Errorf("#%d: failed to finish building issue comment: %v", number, err)
