@@ -137,7 +137,7 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 					PerPage: 100,
 				},
 			}
-			for more && len(numbers) > 0 {
+			for more && len(numbers) == 0 {
 				prs, resp, err := ghClient.PullRequests.List(
 					ctx,
 					event.GetRepo().GetOwner().GetLogin(),
