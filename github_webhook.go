@@ -310,7 +310,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		builder.addParagraphf("Before a member of our team reviews your PR, I have a few suggestions for tidying it up for review:\n%s", ais.String())
 	}
 
-	if len(event.GetPullRequest().RequestedReviewers) == 0 {
+	if len(event.GetPullRequest().RequestedReviewers) == 0 && len(event.GetPullRequest().RequestedTeams) == 0 {
 		// If there are no requested reviewers, check whether there are any reviews.
 		// If there have been, that means someone is already on it.
 		if hasReviews, err := hasReviews(
