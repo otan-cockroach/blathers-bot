@@ -2,9 +2,9 @@ package blathers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -41,10 +41,10 @@ func (lb listBuilder) addf(item string, fmts ...interface{}) listBuilder {
 
 // HandleGithubWebhook handles a Github based webhook.
 func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx := WithRequestID(context.Background(), r.Header.Get("X-Github-Delivery"))
 	t := time.Now()
 	defer func() {
-		log.Printf("[%s] time: %s", r.Header.Get("X-GitHub-Delivery"), time.Now().Sub(t))
+		writeLogf(ctx, "time: %s", time.Now().Sub(t))
 	}()
 
 	var payload []byte
@@ -58,7 +58,7 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		w.WriteHeader(400)
 		fmt.Fprint(w, err.Error())
-		log.Printf("[%s] error: %s", r.Header.Get("X-GitHub-Delivery"), err.Error())
+		writeLogf(ctx, "validate error: %s", err.Error())
 		return
 	}
 
@@ -66,7 +66,7 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Fprint(w, err.Error())
-		log.Printf("[%s] error: %s", r.Header.Get("X-GitHub-Delivery"), err.Error())
+		writeLogf(ctx, "parse error: %s", err.Error())
 		return
 	}
 	switch event := event.(type) {
@@ -80,7 +80,7 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Fprint(w, err.Error())
-		log.Printf("[%s] error: %s", r.Header.Get("X-GitHub-Delivery"), err.Error())
+		writeLogf(ctx, "[%s] error: %s", r.Header.Get("X-GitHub-Delivery"), err.Error())
 		return
 	}
 	w.WriteHeader(200)
@@ -88,7 +88,8 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 
 // handleStatus handles the status component of a webhook.
 func (srv *blathersServer) handleStatus(ctx context.Context, event *github.StatusEvent) error {
-	log.Printf("[Webhook] handling status update (%s, %s)", event.GetContext(), event.GetState())
+	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Status][%s]", event.GetSHA()))
+	writeLogf(ctx, "handling status update (%s, %s)", event.GetContext(), event.GetState())
 	handler, ok := statusHandlers[handlerKey{context: event.GetContext(), state: event.GetState()}]
 	if !ok {
 		return nil
@@ -121,7 +122,7 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 				opts,
 			)
 			if err != nil {
-				return fmt.Errorf("sha %s: error fetching pull requests using ListPRsWithCommit", event.GetSHA())
+				return wrapf(ctx, err, "error fetching pull requests using ListPRsWithCommit")
 			}
 
 			for _, pr := range prs {
@@ -143,7 +144,7 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 		// The previous API is experimental. Let's find the real one using a hackier way.
 		// But this is also experimental....
 		if len(numbers) == 0 {
-			log.Printf("sha %s: unable to find using ListPRsWithCommit, using fallback", event.GetSHA())
+			writeLogf(ctx, "sha %s: unable to find using ListPRsWithCommit, using fallback", event.GetSHA())
 			opts = &github.PullRequestListOptions{
 				State:     "open",
 				Sort:      "updated",
@@ -160,7 +161,7 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 				opts,
 			)
 			if err != nil {
-				return fmt.Errorf("sha %s: error fetching pull requests using List", event.GetSHA())
+				return wrapf(ctx, err, "error fetching pull requests using List")
 			}
 
 			for _, pr := range prs {
@@ -172,7 +173,7 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 			}
 		}
 
-		log.Printf("sha %s: found PRs %#v", event.GetSHA(), numbers)
+		writeLogf(ctx, "sha %s: found PRs %#v", event.GetSHA(), numbers)
 		for _, number := range numbers {
 			// Avoid double posting - the status gets updated twice - once on first failure
 			// and once at the end..
@@ -195,7 +196,7 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 					opts,
 				)
 				if err != nil {
-					return fmt.Errorf("error getting listing issue comments for status update: %s", err.Error())
+					return wrapf(ctx, err, "error getting listing issue comments for status update")
 				}
 
 				for _, comment := range comments {
@@ -211,7 +212,7 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 			}
 
 			if hasCommented {
-				log.Printf("skipping %s because comment already made", event.GetSHA())
+				writeLogf(ctx, "skipping %s because comment already made", event.GetSHA())
 				continue
 			}
 
@@ -228,11 +229,11 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 			builder.addParagraphf(str)
 
 			if err := builder.finish(ctx, ghClient); err != nil {
-				return fmt.Errorf("#%d: failed to finish building issue comment: %v", number, err)
+				return wrapf(ctx, err, "#%d: failed to finish building issue comment", number)
 			}
-			log.Printf("[Webhook][#%d] status updated", number)
+			writeLogf(ctx, "#%d: status updated", number)
 		}
-		log.Printf("sha %s: complete", event.GetSHA())
+		writeLogf(ctx, "complete")
 		return nil
 	},
 }
@@ -242,16 +243,18 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 func (srv *blathersServer) handlePullRequestWebhook(
 	ctx context.Context, event *github.PullRequestEvent,
 ) error {
-	log.Printf("[Webhook][#%d] handling pull request action: %s", event.GetNumber(), event.GetAction())
+	writeLogf(ctx, "[Webhook][#%d] handling pull request action: %s", event.GetNumber(), event.GetAction())
 	if event.Installation == nil {
-		return fmt.Errorf("#%d request does not include installation id: %#v", event.GetNumber(), event)
+		return wrapf(ctx, errors.New("no installation"), "request invalid")
 	}
+
+	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Webhook][PR #%d]", event.GetNumber()))
 
 	// We only care about requests being opened, or new PR updates.
 	switch event.GetAction() {
 	case "opened", "synchronize":
 	default:
-		log.Printf("[Webhook][#%d] not an event we care about", event.GetNumber())
+		writeLogf(ctx, "not an event we care about")
 		return nil
 	}
 
@@ -271,12 +274,12 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	}
 
 	if isMember {
-		log.Printf("[Webhook][#%d] skipping as member is part of organization", event.GetNumber())
+		writeLogf(ctx, "skipping as member is part of organization")
 		return nil
 	}
 
 	if _, isBlacklistedLogin := blacklistedLogins[event.GetSender().GetLogin()]; isBlacklistedLogin {
-		log.Printf("[Webhook][#%d] skipping as member %s is blacklisted", event.GetNumber(), event.GetSender().GetLogin())
+		writeLogf(ctx, "skipping as member %s is blacklisted", event.GetSender().GetLogin())
 		return nil
 	}
 
@@ -403,8 +406,8 @@ func (srv *blathersServer) handlePullRequestWebhook(
 
 	// We've compiled everything we want to happen. Send the message.
 	if err := builder.finish(ctx, ghClient); err != nil {
-		return fmt.Errorf("#%d: failed to finish building issue comment: %v", event.GetNumber(), err)
+		return wrapf(ctx, err, "failed to finish building issue comment")
 	}
-	log.Printf("[Webhook][#%d] completed", event.GetNumber())
+	writeLogf(ctx, "completed all checks")
 	return nil
 }

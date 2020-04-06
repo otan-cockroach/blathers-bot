@@ -70,7 +70,7 @@ func findParticipants(
 		if err, ok := err.(*github.ErrorResponse); ok && err.Response.StatusCode == http.StatusNotFound {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("error getting participant issue: %s", err.Error())
+		return nil, wrapf(ctx, err, "error getting participant issue")
 	}
 	issueRef := fmt.Sprintf("%s/%s#%d", owner, repo, issueNum)
 	addParticipant(issue.GetUser().GetLogin(), fmt.Sprintf("author of %s", issueRef))
@@ -90,7 +90,7 @@ func findParticipants(
 			opts,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error getting listing issue comments for findParticipants: %s", err.Error())
+			return nil, wrapf(ctx, err, "error getting listing issue comments for findParticipants")
 		}
 
 		for _, comment := range comments {

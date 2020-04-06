@@ -2,7 +2,6 @@ package blathers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/go-github/v30/github"
 )
@@ -13,7 +12,7 @@ func isOrgMember(
 ) (bool, error) {
 	isMember, _, err := ghClient.Organizations.IsMember(ctx, org, login)
 	if err != nil {
-		return false, fmt.Errorf("failed getting organization member status: %s", err.Error())
+		return false, wrapf(ctx, err, "failed getting organization member status")
 	}
 	return isMember, err
 }
@@ -36,7 +35,7 @@ func getOrganizationLogins(
 			opts,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error listing org members: %s", err.Error())
+			return nil, wrapf(ctx, err, "error listing org members")
 		}
 		for _, member := range members {
 			logins[member.GetLogin()] = struct{}{}

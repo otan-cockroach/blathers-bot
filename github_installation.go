@@ -2,7 +2,6 @@ package blathers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -18,7 +17,7 @@ func (srv *blathersServer) getGithubClientFromInstallation(
 	ctx context.Context, id installationID,
 ) *github.Client {
 	return github.NewClient(&http.Client{
-		Transport: &accessTokenHTTPTransport{srv: srv, installationID: id},
+		Transport: &accessTokenHTTPTransport{srv: srv, installationID: id, ctx: ctx},
 	})
 }
 
@@ -43,13 +42,14 @@ func (srv *blathersServer) fetchAccessToken(
 	gh := github.NewClient(&http.Client{
 		Transport: &installationTokenHTTPTransport{
 			srv: srv,
+			ctx: ctx,
 		},
 	})
 
 	var err error
 	token, _, err = gh.Apps.CreateInstallationToken(ctx, int64(id), &github.InstallationTokenOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed getting installation token: %v", err)
+		return "", wrapf(ctx, err, "failed getting installation token")
 	}
 	srv.tokenStoreMu.store[id] = token
 	return token.GetToken(), nil
@@ -59,6 +59,7 @@ func (srv *blathersServer) fetchAccessToken(
 type accessTokenHTTPTransport struct {
 	srv            *blathersServer
 	installationID installationID
+	ctx            context.Context
 }
 
 var _ http.RoundTripper = (*accessTokenHTTPTransport)(nil)
@@ -66,7 +67,7 @@ var _ http.RoundTripper = (*accessTokenHTTPTransport)(nil)
 func (c *accessTokenHTTPTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	accessToken, err := c.srv.fetchAccessToken(context.Background(), c.installationID)
 	if err != nil {
-		return nil, fmt.Errorf("failed getting signed token: %v", err)
+		return nil, wrap(c.ctx, err, "failed getting signed token")
 	}
 	r.Header.Add("Authorization", "token "+accessToken)
 	return http.DefaultTransport.RoundTrip(r)
@@ -79,6 +80,7 @@ func (c *accessTokenHTTPTransport) RoundTrip(r *http.Request) (*http.Response, e
 // attempting to fetch an access token.
 type installationTokenHTTPTransport struct {
 	srv *blathersServer
+	ctx context.Context
 }
 
 var _ http.RoundTripper = (*installationTokenHTTPTransport)(nil)
@@ -95,7 +97,7 @@ func (c *installationTokenHTTPTransport) RoundTrip(r *http.Request) (*http.Respo
 	)
 	signedStr, err := t.SignedString(c.srv.githubAppPrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed getting signed signautre: %v", err)
+		return nil, wrap(c.ctx, err, "failed getting signed signautre: %v")
 	}
 	r.Header.Add("Authorization", "Bearer "+signedStr)
 	return http.DefaultTransport.RoundTrip(r)

@@ -2,7 +2,6 @@ package blathers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/go-github/v30/github"
 )
@@ -42,7 +41,7 @@ func (prb *githubPullRequestIssueCommentBuilder) finish(
 			},
 		)
 		if err != nil {
-			return fmt.Errorf("error adding reviewers: %s", err.Error())
+			return wrapf(ctx, err, "error adding reviewers")
 		}
 	}
 	return nil
@@ -64,7 +63,7 @@ func listCommitsInPR(
 			opts,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error found listing commits in PR: %s", err.Error())
+			return nil, wrapf(ctx, err, "error found listing commits in PR")
 		}
 		allCommits = append(allCommits, commits...)
 		more = resp.NextPage != 0
@@ -87,7 +86,7 @@ func hasReviews(
 		&github.ListOptions{},
 	)
 	if err != nil {
-		return false, fmt.Errorf("erroring listing reviews: %s", err.Error())
+		return false, wrapf(ctx, err, "erroring listing reviews")
 	}
 	return len(reviews) > 0, nil
 }
