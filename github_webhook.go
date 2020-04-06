@@ -129,6 +129,10 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 				if pr.GetState() != "open" {
 					continue
 				}
+				if pr.GetHead().GetSHA() != event.GetSHA() {
+					writeLogf(ctx, "aborting - PR no longer has head - new head is %s", pr.GetHead().GetSHA())
+					return nil
+				}
 				number := pr.GetNumber()
 				numbers = append(numbers, number)
 				// Only take the first one for now.
