@@ -12,6 +12,15 @@ import (
 	"github.com/google/go-github/v30/github"
 )
 
+// blacklistedLogins contains a list of organization members to
+// ignore in certain situations.
+var blacklistedLogins = map[string]struct{}{
+	"cockroach-teamcity":  struct{}{},
+	"cockroach-oncall":    struct{}{},
+	"cockroach-roachdash": struct{}{},
+	"crl-monitor-roach":   struct{}{},
+}
+
 // listBuilder keeps track of action items needed to be done.
 // This will be output as a GitHub list.
 type listBuilder []string
@@ -261,8 +270,13 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		return err
 	}
 
-	if isMember && event.GetSender().GetLogin() != "otan" {
+	if isMember {
 		log.Printf("[Webhook][#%d] skipping as member is part of organization", event.GetNumber())
+		return nil
+	}
+
+	if _, isBlacklistedLogin := blacklistedLogins[event.GetSender().GetLogin()]; isBlacklistedLogin {
+		log.Printf("[Webhook][#%d] skipping as member %s is blacklisted", event.GetNumber(), event.GetSender().GetLogin())
 		return nil
 	}
 
@@ -362,9 +376,11 @@ func (srv *blathersServer) handlePullRequestWebhook(
 			if err != nil {
 				return err
 			}
-			for author := range participantToReasons {
-				if _, ok := orgMembers[author]; !ok || author == event.GetSender().GetLogin() {
-					delete(participantToReasons, author)
+			for name := range participantToReasons {
+				_, isOrgMember := orgMembers[name]
+				_, isBlacklistedLogin := blacklistedLogins[name]
+				if !isOrgMember || isBlacklistedLogin || name == event.GetSender().GetLogin() {
+					delete(participantToReasons, name)
 				}
 			}
 
