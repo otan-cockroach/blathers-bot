@@ -175,47 +175,6 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 
 		writeLogf(ctx, "sha %s: found PRs %#v", event.GetSHA(), numbers)
 		for _, number := range numbers {
-			// Avoid double posting - the status gets updated twice - once on first failure
-			// and once at the end..
-			str := fmt.Sprintf(
-				":x: The [%s build](%s) has failed on [%s](%s).",
-				event.GetContext(),
-				event.GetTargetURL(),
-				event.GetSHA()[:8],
-				event.GetCommit().GetHTMLURL(),
-			)
-			opts := &github.IssueListCommentsOptions{}
-			more := true
-			hasCommented := false
-			for more && !hasCommented {
-				comments, resp, err := ghClient.Issues.ListComments(
-					ctx,
-					event.GetRepo().GetOwner().GetLogin(),
-					event.GetRepo().GetName(),
-					number,
-					opts,
-				)
-				if err != nil {
-					return wrapf(ctx, err, "error getting listing issue comments for status update")
-				}
-
-				for _, comment := range comments {
-					if strings.Contains(comment.GetBody(), str) {
-						hasCommented = true
-						break
-					}
-				}
-				more = resp.NextPage != 0
-				if more {
-					opts.Page = resp.NextPage
-				}
-			}
-
-			if hasCommented {
-				writeLogf(ctx, "skipping %s because comment already made", event.GetSHA())
-				continue
-			}
-
 			// Build the message to send.
 			builder := githubPullRequestIssueCommentBuilder{
 				reviewers: make(map[string]struct{}),
@@ -226,7 +185,13 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 				},
 			}
 
-			builder.addParagraphf(str)
+			builder.addParagraphf(
+				":x: The [%s build](%s) has failed on [%s](%s).",
+				event.GetContext(),
+				event.GetTargetURL(),
+				event.GetSHA()[:8],
+				event.GetCommit().GetHTMLURL(),
+			)
 
 			if err := builder.finish(ctx, ghClient); err != nil {
 				return wrapf(ctx, err, "#%d: failed to finish building issue comment", number)
@@ -243,12 +208,11 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 func (srv *blathersServer) handlePullRequestWebhook(
 	ctx context.Context, event *github.PullRequestEvent,
 ) error {
-	writeLogf(ctx, "[Webhook][#%d] handling pull request action: %s", event.GetNumber(), event.GetAction())
+	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Webhook][PR #%d]", event.GetNumber()))
+	writeLogf(ctx, "handling pull request action: %s", event.GetAction())
 	if event.Installation == nil {
 		return wrapf(ctx, errors.New("no installation"), "request invalid")
 	}
-
-	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Webhook][PR #%d]", event.GetNumber()))
 
 	// We only care about requests being opened, or new PR updates.
 	switch event.GetAction() {
@@ -273,7 +237,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		return err
 	}
 
-	if isMember {
+	if isMember && event.GetSender().GetLogin() != "otan" {
 		writeLogf(ctx, "skipping as member is part of organization")
 		return nil
 	}
@@ -295,6 +259,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	// Send guidelines.
 	switch event.GetAction() {
 	case "opened":
+		builder.setMustComment(true)
 		if event.GetSender().GetLogin() == "otan" {
 			builder.addParagraph("Welcome back, creator. Thank you for testing me.")
 		} else if event.GetPullRequest().GetAuthorAssociation() == "FIRST_TIME_CONTRIBUTOR" {
@@ -336,6 +301,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	if len(ais) == 0 {
 		builder.addParagraph("My owl senses detect your PR is good for review. Please keep an eye out for any test failures in CI.")
 	} else {
+		builder.setMustComment(true)
 		ais = ais.add("When CI has completed, please ensure no errors have appeared.")
 		builder.addParagraphf("Before a member of our team reviews your PR, I have a few suggestions for tidying it up for review:\n%s", ais.String())
 	}
@@ -387,6 +353,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 				}
 			}
 
+			builder.setMustComment(true)
 			if len(participantToReasons) == 0 {
 				builder.addParagraph(`I was unable to automatically find a reviewer. You can try CCing one of the following members:
 * A person you worked with closely on this PR.

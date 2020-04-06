@@ -13,9 +13,10 @@ import (
 type githubIssueCommentBuilder struct {
 	paragraphs []string
 
-	owner  string
-	repo   string
-	number int
+	mustComment bool
+	owner       string
+	repo        string
+	number      int
 }
 
 func (icb *githubIssueCommentBuilder) addParagraph(paragraph string) *githubIssueCommentBuilder {
@@ -23,10 +24,55 @@ func (icb *githubIssueCommentBuilder) addParagraph(paragraph string) *githubIssu
 	return icb
 }
 
+func (icb *githubIssueCommentBuilder) hasMostRecentComment(
+	ctx context.Context, ghClient *github.Client, contains string,
+) (bool, error) {
+	sort := "created"
+	direction := "desc"
+	opts := &github.IssueListCommentsOptions{
+		Sort:      &sort,
+		Direction: &direction,
+	}
+	more := true
+	for more {
+		comments, resp, err := ghClient.Issues.ListComments(
+			ctx,
+			icb.owner,
+			icb.repo,
+			icb.number,
+			opts,
+		)
+		if err != nil {
+			return false, wrapf(ctx, err, "error getting listing issue comments for status update")
+		}
+
+		for _, comment := range comments {
+			if comment.GetBody() == contains {
+				return true, nil
+			}
+			// If it's blathers, this is the most recent comment.
+			if comment.GetUser().GetLogin() == "blathers-crl" {
+				return false, nil
+			}
+		}
+		more = resp.NextPage != 0
+		if more {
+			opts.Page = resp.NextPage
+		}
+	}
+
+	return false, nil
+}
+
 func (icb *githubIssueCommentBuilder) addParagraphf(
 	paragraph string, args ...interface{},
 ) *githubIssueCommentBuilder {
 	icb.paragraphs = append(icb.paragraphs, fmt.Sprintf(paragraph, args...))
+	return icb
+}
+
+func (icb *githubIssueCommentBuilder) setMustComment(must bool) *githubIssueCommentBuilder {
+	icb.mustComment = must
 	return icb
 }
 
@@ -39,6 +85,17 @@ func (icb *githubIssueCommentBuilder) finish(ctx context.Context, ghClient *gith
 		"<sub>:owl: Hoot! I am a [Blathers](https://github.com/apps/blathers-crl), a bot for [CockroachDB](https://github.com/cockroachdb). I am experimental - my owner is [otan](https://github.com/otan).</sub>",
 	)
 	body := strings.Join(icb.paragraphs, "\n\n")
+	if !icb.mustComment {
+		// Check we haven't posted this exact comment before.
+		hasComment, err := icb.hasMostRecentComment(ctx, ghClient, body)
+		if err != nil {
+			return wrapf(ctx, err, "error finding a comment")
+		}
+		if hasComment {
+			writeLogf(ctx, "exact comment already made recently; aborting")
+			return nil
+		}
+	}
 	_, _, err := ghClient.Issues.CreateComment(
 		ctx,
 		icb.owner,
@@ -46,7 +103,10 @@ func (icb *githubIssueCommentBuilder) finish(ctx context.Context, ghClient *gith
 		icb.number,
 		&github.IssueComment{Body: &body},
 	)
-	return err
+	if err != nil {
+		return wrapf(ctx, err, "error creating a comment")
+	}
+	return nil
 }
 
 // findParticipants finds all participants belonging on the owner
