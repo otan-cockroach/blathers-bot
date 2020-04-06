@@ -24,7 +24,7 @@ func (icb *githubIssueCommentBuilder) addParagraph(paragraph string) *githubIssu
 	return icb
 }
 
-func (icb *githubIssueCommentBuilder) hasMostRecentComment(
+func (icb *githubIssueCommentBuilder) hasComment(
 	ctx context.Context, ghClient *github.Client, contains string,
 ) (bool, error) {
 	sort := "created"
@@ -49,10 +49,6 @@ func (icb *githubIssueCommentBuilder) hasMostRecentComment(
 		for _, comment := range comments {
 			if comment.GetBody() == contains {
 				return true, nil
-			}
-			// If it's blathers, this is the most recent comment.
-			if comment.GetUser().GetLogin() == "blathers-crl" {
-				return false, nil
 			}
 		}
 		more = resp.NextPage != 0
@@ -87,12 +83,12 @@ func (icb *githubIssueCommentBuilder) finish(ctx context.Context, ghClient *gith
 	body := strings.Join(icb.paragraphs, "\n\n")
 	if !icb.mustComment {
 		// Check we haven't posted this exact comment before.
-		hasComment, err := icb.hasMostRecentComment(ctx, ghClient, body)
+		hasComment, err := icb.hasComment(ctx, ghClient, body)
 		if err != nil {
 			return wrapf(ctx, err, "error finding a comment")
 		}
 		if hasComment {
-			writeLogf(ctx, "exact comment already made recently; aborting")
+			writeLogf(ctx, "comment already made; aborting")
 			return nil
 		}
 	}
