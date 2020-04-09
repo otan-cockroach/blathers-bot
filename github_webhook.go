@@ -261,18 +261,20 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	}
 
 	// Send guidelines.
-	switch event.GetAction() {
-	case "opened":
-		builder.setMustComment(true)
-		if event.GetSender().GetLogin() == "otan" {
-			builder.addParagraph("Welcome back, creator. Thank you for testing me.")
-		} else if event.GetPullRequest().GetAuthorAssociation() == "FIRST_TIME_CONTRIBUTOR" {
-			builder.addParagraph("Thank you for contributing your first PR! Please ensure you have read the instructions for [creating your first PR](https://wiki.crdb.io/wiki/spaces/CRDB/pages/181633464/Your+first+CockroachDB+PR]).")
-		} else {
-			builder.addParagraph("Thank you for contributing to CockroachDB. Please ensure you have followed the guidelines for [creating a PR](https://wiki.crdb.io/wiki/spaces/CRDB/pages/181633464/Your+first+CockroachDB+PR]).")
+	if event.GetSender().GetLogin() == "otan" {
+		builder.addParagraph("Welcome back, creator. Thank you for testing me.")
+	} else {
+		switch event.GetAction() {
+		case "opened":
+			builder.setMustComment(true)
+			if event.GetPullRequest().GetAuthorAssociation() == "FIRST_TIME_CONTRIBUTOR" {
+				builder.addParagraph("Thank you for contributing your first PR! Please ensure you have read the instructions for [creating your first PR](https://wiki.crdb.io/wiki/spaces/CRDB/pages/181633464/Your+first+CockroachDB+PR]).")
+			} else {
+				builder.addParagraph("Thank you for contributing to CockroachDB. Please ensure you have followed the guidelines for [creating a PR](https://wiki.crdb.io/wiki/spaces/CRDB/pages/181633464/Your+first+CockroachDB+PR]).")
+			}
+		case "synchronize":
+			builder.addParagraph("Thank you for updating your pull request.")
 		}
-	case "synchronize":
-		builder.addParagraph("Thank you for updating your pull request.")
 	}
 
 	// Build a list of action items that we can easily scan for.

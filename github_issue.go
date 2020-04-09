@@ -78,7 +78,7 @@ func (icb *githubIssueCommentBuilder) finish(ctx context.Context, ghClient *gith
 	}
 	icb.paragraphs = append(
 		icb.paragraphs,
-		"<sub>:owl: Hoot! I am a [Blathers](https://github.com/apps/blathers-crl), a bot for [CockroachDB](https://github.com/cockroachdb). I am experimental - my owner is [otan](https://github.com/otan).</sub>",
+		"<sub>:owl: Hoot! I am a [Blathers](https://github.com/apps/blathers-crl), a bot for [CockroachDB](https://github.com/cockroachdb). My owner is [otan](https://github.com/otan).</sub>",
 	)
 	body := strings.Join(icb.paragraphs, "\n\n")
 	if !icb.mustComment {
