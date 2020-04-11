@@ -12,6 +12,7 @@ import (
 // githubIssueCommentBuilder handles building a GitHub issue comment.
 type githubIssueCommentBuilder struct {
 	paragraphs []string
+	labels     map[string]struct{}
 
 	mustComment bool
 	owner       string
@@ -21,6 +22,11 @@ type githubIssueCommentBuilder struct {
 
 func (icb *githubIssueCommentBuilder) addParagraph(paragraph string) *githubIssueCommentBuilder {
 	icb.paragraphs = append(icb.paragraphs, paragraph)
+	return icb
+}
+
+func (icb *githubIssueCommentBuilder) addLabel(label string) *githubIssueCommentBuilder {
+	icb.labels[label] = struct{}{}
 	return icb
 }
 
@@ -102,6 +108,23 @@ func (icb *githubIssueCommentBuilder) finish(ctx context.Context, ghClient *gith
 	if err != nil {
 		return wrapf(ctx, err, "error creating a comment")
 	}
+
+	if len(icb.labels) > 0 {
+		labels := make([]string, 0, len(icb.labels))
+		for label := range icb.labels {
+			labels = append(labels, label)
+		}
+		_, _, err := ghClient.Issues.AddLabelsToIssue(
+			ctx,
+			icb.owner,
+			icb.repo,
+			icb.number,
+			labels,
+		)
+		if err != nil {
+			return wrapf(ctx, err, "error adding labels")
+		}
+	}
 	return nil
 }
 
@@ -159,4 +182,52 @@ func findParticipants(
 	}
 
 	return participants, nil
+}
+
+// findRelevantUsersFromAttachedIssues attempts to find relevant users based on a body of text.
+func findRelevantUsersFromAttachedIssues(
+	ctx context.Context,
+	ghClient *github.Client,
+	owner string,
+	repo string,
+	issueNum int,
+	body string,
+	blacklistUserLogin string,
+) (map[string][]string, error) {
+
+	mentionedIssues := findMentionedIssues(
+		owner,
+		repo,
+		body,
+	)
+	participantToReasons := make(map[string][]string)
+	for _, iss := range mentionedIssues {
+		participantToReason, err := findParticipants(
+			ctx,
+			ghClient,
+			owner,
+			repo,
+			iss.number,
+		)
+		if err != nil {
+			return nil, err
+		}
+		for participant, reason := range participantToReason {
+			participantToReasons[participant] = append(participantToReasons[participant], reason)
+		}
+	}
+
+	// Filter out anyone not in the organization.
+	orgMembers, err := getOrganizationLogins(ctx, ghClient, owner)
+	if err != nil {
+		return nil, err
+	}
+	for name := range participantToReasons {
+		_, isOrgMember := orgMembers[name]
+		_, isBlacklistedLogin := blacklistedLogins[name]
+		if !isOrgMember || isBlacklistedLogin || name == blacklistUserLogin {
+			delete(participantToReasons, name)
+		}
+	}
+	return participantToReasons, nil
 }

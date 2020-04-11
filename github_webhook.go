@@ -2,7 +2,6 @@ package blathers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -70,10 +69,27 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 		return
 	}
 	switch event := event.(type) {
+	case *github.IssuesEvent:
+		if event.Installation == nil {
+			w.WriteHeader(400)
+			writeLogf(ctx, "no installation")
+			return
+		}
+		err = srv.handleIssuesWebhook(ctx, event)
 	case *github.PullRequestEvent:
+		if event.Installation == nil {
+			w.WriteHeader(400)
+			writeLogf(ctx, "no installation")
+			return
+		}
 		err = srv.handlePullRequestWebhook(ctx, event)
 	case *github.StatusEvent:
-		err = srv.handleStatus(ctx, event)
+		if event.Installation == nil {
+			w.WriteHeader(400)
+			writeLogf(ctx, "no installation")
+			return
+		}
+		err = srv.handleStatusWebhook(ctx, event)
 	case *github.PingEvent:
 		fmt.Fprintf(w, "ok")
 	}
@@ -86,8 +102,10 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(200)
 }
 
-// handleStatus handles the status component of a webhook.
-func (srv *blathersServer) handleStatus(ctx context.Context, event *github.StatusEvent) error {
+// handleStatusWebhook handles the status component of a webhook.
+func (srv *blathersServer) handleStatusWebhook(
+	ctx context.Context, event *github.StatusEvent,
+) error {
 	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Status][%s]", event.GetSHA()))
 	writeLogf(ctx, "handling status update (%s, %s)", event.GetContext(), event.GetState())
 	handler, ok := statusHandlers[handlerKey{context: event.GetContext(), state: event.GetState()}]
@@ -207,6 +225,100 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 	},
 }
 
+// handleIssuesWebhook handles the pull request component
+// of a webhook.
+func (srv *blathersServer) handleIssuesWebhook(
+	ctx context.Context, event *github.IssuesEvent,
+) error {
+	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Webhook][Issue #%d]", event.Issue.GetNumber()))
+	writeLogf(ctx, "handling issues action: %s", event.GetAction())
+
+	switch event.GetAction() {
+	case "opened":
+	default:
+		writeLogf(ctx, "not an event we care about")
+		return nil
+	}
+
+	if event.Issue.PullRequestLinks != nil {
+		writeLogf(ctx, "ignoring pull requests")
+		return nil
+	}
+
+	ghClient := srv.getGithubClientFromInstallation(
+		ctx,
+		installationID(event.Installation.GetID()),
+	)
+
+	isMember, err := isOrgMember(
+		ctx,
+		ghClient,
+		event.GetRepo().GetOwner().GetLogin(),
+		event.GetSender().GetLogin(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if isMember {
+		writeLogf(ctx, "skipping as member is part of organization")
+		return nil
+	}
+
+	builder := githubIssueCommentBuilder{
+		labels: map[string]struct{}{},
+		owner:  event.GetRepo().GetOwner().GetLogin(),
+		repo:   event.GetRepo().GetName(),
+		number: event.Issue.GetNumber(),
+	}
+	builder.addLabel("O-community")
+
+	body := event.GetIssue().GetBody()
+	builder.addParagraph("Hello, I am Blathers. I am here to help you get the issue triaged.")
+	if strings.Contains(body, "Describe the problem") {
+		builder.addParagraph("Hoot - a bug! Though bugs are the bane of my existence, rest assured the wretched thing will get the best of care here.")
+		builder.addLabel("C-bug")
+	} else if strings.Contains(body, "Is your feature request related to a problem? Please describe.") {
+		builder.addLabel("C-enhancement")
+	} else if strings.Contains(body, "What is your situation?") {
+		builder.addLabel("C-investigation")
+	} else {
+		builder.addParagraph("It looks like you have not filled out the issue in the format of any of our templates. To best assist you, we advise you to use one of these [templates](https://github.com/cockroachdb/cockroach/tree/master/.github/ISSUE_TEMPLATE).")
+	}
+
+	participantToReasons, err := findRelevantUsersFromAttachedIssues(
+		ctx,
+		ghClient,
+		event.GetRepo().GetOwner().GetLogin(),
+		event.GetRepo().GetName(),
+		event.Issue.GetNumber(),
+		event.GetIssue().GetBody(),
+		event.GetSender().GetLogin(),
+	)
+	if err != nil {
+		return wrapf(ctx, err, "failed to find relevant users")
+	}
+	builder.setMustComment(true)
+	// TODO(otan): autotriage based on keywords as well.
+	if len(participantToReasons) == 0 {
+		// TODO(otan): proper fallback to an oncall rotation.
+		builder.addLabel("X-blathers-untriaged")
+		builder.addParagraph(`I was unable to automatically find someone to ping. We will get back to you soon. However, if we have not gotten back to your issue within a few business days, you can try the following:
+* Join our [community slack channel](https://cockroa.ch/slack) and ask on #cockroachdb.
+* Try find someone from [here](https://github.com/orgs/cockroachdb/people) if you know they worked closely on the area and cc them.`)
+	} else {
+		builder.addLabel("X-blathers-triaged")
+		var assignedReasons listBuilder
+		for author, reasons := range participantToReasons {
+			assignedReasons = assignedReasons.addf("@%s (%s)", author, strings.Join(reasons, ", "))
+			// TODO(otan): assign?
+		}
+		builder.addParagraphf("I have CC'd a few people who may be able to assist in helping you:\n%s", assignedReasons.String())
+	}
+
+	return builder.finish(ctx, ghClient)
+}
+
 // handlePullRequestWebhook handles the pull request component
 // of a webhook.
 func (srv *blathersServer) handlePullRequestWebhook(
@@ -214,9 +326,6 @@ func (srv *blathersServer) handlePullRequestWebhook(
 ) error {
 	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Webhook][PR #%d]", event.GetNumber()))
 	writeLogf(ctx, "handling pull request action: %s", event.GetAction())
-	if event.Installation == nil {
-		return wrapf(ctx, errors.New("no installation"), "request invalid")
-	}
 
 	// We only care about requests being opened, or new PR updates.
 	switch event.GetAction() {
@@ -254,6 +363,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	builder := githubPullRequestIssueCommentBuilder{
 		reviewers: make(map[string]struct{}),
 		githubIssueCommentBuilder: githubIssueCommentBuilder{
+			labels: map[string]struct{}{},
 			owner:  event.GetRepo().GetOwner().GetLogin(),
 			repo:   event.GetRepo().GetName(),
 			number: event.GetNumber(),
@@ -324,41 +434,18 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		); err != nil {
 			return err
 		} else if !hasReviews {
-			mentionedIssues := findMentionedIssues(
+			participantToReasons, err := findRelevantUsersFromAttachedIssues(
+				ctx,
+				ghClient,
 				event.GetRepo().GetOwner().GetLogin(),
 				event.GetRepo().GetName(),
+				event.GetNumber(),
 				event.GetPullRequest().GetBody(),
+				event.GetSender().GetLogin(),
 			)
-			participantToReasons := make(map[string][]string)
-			for _, iss := range mentionedIssues {
-				participantToReason, err := findParticipants(
-					ctx,
-					ghClient,
-					event.GetRepo().GetOwner().GetLogin(),
-					event.GetRepo().GetName(),
-					iss.number,
-				)
-				if err != nil {
-					return err
-				}
-				for participant, reason := range participantToReason {
-					participantToReasons[participant] = append(participantToReasons[participant], reason)
-				}
-			}
-
-			// Filter out anyone not in the organization.
-			orgMembers, err := getOrganizationLogins(ctx, ghClient, event.GetRepo().GetOwner().GetLogin())
 			if err != nil {
-				return err
+				return wrapf(ctx, err, "failed to find relevant users")
 			}
-			for name := range participantToReasons {
-				_, isOrgMember := orgMembers[name]
-				_, isBlacklistedLogin := blacklistedLogins[name]
-				if !isOrgMember || isBlacklistedLogin || name == event.GetSender().GetLogin() {
-					delete(participantToReasons, name)
-				}
-			}
-
 			builder.setMustComment(true)
 			if len(participantToReasons) == 0 {
 				builder.addParagraph(`I was unable to automatically find a reviewer. You can try CCing one of the following members:
