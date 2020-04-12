@@ -298,8 +298,18 @@ func (srv *blathersServer) handleIssuesWebhook(
 	if err != nil {
 		return wrapf(ctx, err, "failed to find relevant users")
 	}
-	builder.setMustComment(true)
-	// TODO(otan): autotriage based on keywords as well.
+
+	// If we haven't found anything by issues, fallback to trying to use arbitrary keywords.
+	if len(participantToReasons) == 0 {
+		writeLogf(ctx, "failed to find any related issues; trying keywords")
+		for owner, keywords := range findOwnersFromKeywords(event.GetIssue().GetBody()) {
+			participantToReasons[owner] = append(
+				participantToReasons[owner],
+				fmt.Sprintf("found keywords: %s", strings.Join(keywords, ",")),
+			)
+		}
+	}
+
 	if len(participantToReasons) == 0 {
 		// TODO(otan): proper fallback to an oncall rotation.
 		builder.addLabel("X-blathers-untriaged")
@@ -316,6 +326,7 @@ func (srv *blathersServer) handleIssuesWebhook(
 		builder.addParagraphf("I have CC'd a few people who may be able to assist in helping you:\n%s", assignedReasons.String())
 	}
 
+	builder.setMustComment(true)
 	return builder.finish(ctx, ghClient)
 }
 
