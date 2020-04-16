@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFindOwnersFromKeywords(t *testing.T) {
+func TestFindTeamsFromKeywords(t *testing.T) {
 	testCases := []struct {
 		body     string
 		expected map[string][]string
@@ -14,14 +14,14 @@ func TestFindOwnersFromKeywords(t *testing.T) {
 		{
 			`my rocks db is bad`,
 			map[string][]string{
-				"petermattis": {"rocks db"},
+				"storage": {"rocks db"},
 			},
 		},
 		{
 			`my backup is failing! i executed this SQL statement to get it`,
 			map[string][]string{
-				"dt":          {"backup"},
-				"jordanlewis": {"SQL statement"},
+				"bulk-io":      {"backup"},
+				"sql-features": {"SQL statement"},
 			},
 		},
 		// Ensure default templates don't cause anyone to get pinged.
@@ -145,7 +145,7 @@ Select all that applies:
 
 	for _, tc := range testCases {
 		t.Run(tc.body, func(t *testing.T) {
-			ret := findOwnersFromKeywords(tc.body)
+			ret := findTeamsFromKeywords(tc.body)
 			require.Equal(t, tc.expected, ret)
 		})
 	}

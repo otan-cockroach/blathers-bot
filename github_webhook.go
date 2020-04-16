@@ -302,11 +302,14 @@ func (srv *blathersServer) handleIssuesWebhook(
 	// If we haven't found anything by issues, fallback to trying to use arbitrary keywords.
 	if len(participantToReasons) == 0 {
 		writeLogf(ctx, "failed to find any related issues; trying keywords")
-		for owner, keywords := range findOwnersFromKeywords(event.GetIssue().GetBody()) {
-			participantToReasons[owner] = append(
-				participantToReasons[owner],
-				fmt.Sprintf("found keywords: %s", strings.Join(keywords, ",")),
-			)
+		for team, keywords := range findTeamsFromKeywords(event.GetIssue().GetBody()) {
+			// TODO: add projects.
+			for _, owner := range teamToContacts[team] {
+				participantToReasons[owner] = append(
+					participantToReasons[owner],
+					fmt.Sprintf("found keywords: %s", strings.Join(keywords, ",")),
+				)
+			}
 		}
 	}
 
@@ -321,9 +324,9 @@ func (srv *blathersServer) handleIssuesWebhook(
 		var assignedReasons listBuilder
 		for author, reasons := range participantToReasons {
 			assignedReasons = assignedReasons.addf("@%s (%s)", author, strings.Join(reasons, ", "))
-			// TODO(otan): assign?
+			// builder.addAssignee(author)
 		}
-		builder.addParagraphf("I have CC'd a few people who may be able to assist in helping you:\n%s", assignedReasons.String())
+		builder.addParagraphf("I have CC'd a few people who may be able to assist you:\n%s", assignedReasons.String())
 	}
 
 	builder.setMustComment(true)
@@ -361,7 +364,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		return err
 	}
 
-	if isMember && event.GetSender().GetLogin() != "otan" {
+	if isMember {
 		writeLogf(ctx, "skipping as member is part of organization")
 		return nil
 	}

@@ -14,6 +14,9 @@ type githubPullRequestIssueCommentBuilder struct {
 }
 
 func (prb *githubPullRequestIssueCommentBuilder) addReviewer(reviewer string) {
+	if prb.reviewers == nil {
+		prb.reviewers = map[string]struct{}{}
+	}
 	prb.reviewers[reviewer] = struct{}{}
 }
 

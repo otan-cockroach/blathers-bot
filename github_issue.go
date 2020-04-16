@@ -13,6 +13,7 @@ import (
 type githubIssueCommentBuilder struct {
 	paragraphs []string
 	labels     map[string]struct{}
+	assignees  map[string]struct{}
 
 	mustComment bool
 	owner       string
@@ -26,7 +27,18 @@ func (icb *githubIssueCommentBuilder) addParagraph(paragraph string) *githubIssu
 }
 
 func (icb *githubIssueCommentBuilder) addLabel(label string) *githubIssueCommentBuilder {
+	if icb.labels == nil {
+		icb.labels = map[string]struct{}{}
+	}
 	icb.labels[label] = struct{}{}
+	return icb
+}
+
+func (icb *githubIssueCommentBuilder) addAssignee(a string) *githubIssueCommentBuilder {
+	if icb.assignees == nil {
+		icb.assignees = map[string]struct{}{}
+	}
+	icb.assignees[a] = struct{}{}
 	return icb
 }
 
@@ -123,6 +135,23 @@ func (icb *githubIssueCommentBuilder) finish(ctx context.Context, ghClient *gith
 		)
 		if err != nil {
 			return wrapf(ctx, err, "error adding labels")
+		}
+	}
+
+	if len(icb.assignees) > 0 {
+		assignees := make([]string, 0, len(icb.assignees))
+		for assignee := range icb.assignees {
+			assignees = append(assignees, assignee)
+		}
+		_, _, err := ghClient.Issues.AddAssignees(
+			ctx,
+			icb.owner,
+			icb.repo,
+			icb.number,
+			assignees,
+		)
+		if err != nil {
+			return wrapf(ctx, err, "error adding assignees")
 		}
 	}
 	return nil
