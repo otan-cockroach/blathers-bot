@@ -26,6 +26,24 @@ var teamToContacts = map[string][]string{
 	"optimizer":     {`RaduBerinde`},
 }
 
+type board struct {
+	owner string
+	repo  string
+	name  string
+}
+
+var teamToBoards = map[string]board{
+	"appdev":        {"cockroachdb", "", "AppDev"},
+	"bulk-io":       {"cockroachdb", "cockroach", "Bulk I/O Backlog"},
+	"sql-schema":    {"cockroachdb", "cockroach", "SQL Schema"},
+	"kv":            {"cockroachdb", "cockroach", "KV"},
+	"sql-features":  {"cockroachdb", "cockroach", "SQL Features"},
+	"vectorized":    {"cockroachdb", "cockroach", "SQL Execution"},
+	"observability": {"cockroachdb", "cockroach", "Web UI"},
+	"storage":       {"cockroachdb", "", "Storage"},
+	"optimizer":     {"cockroachdb", "cockroach", "SQL Planning"},
+}
+
 // findTeamsFromKeywords maps from owner to a list of suspect keywords.
 func findTeamsFromKeywords(body string) map[string][]string {
 	// Not efficient at all, but w/e.

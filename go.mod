@@ -44,6 +44,7 @@ require (
 	github.com/montanaflynn/stats v0.6.3 // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5 // indirect
+	github.com/otan/go-github v17.0.0+incompatible
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/prometheus/client_golang v1.5.1 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect

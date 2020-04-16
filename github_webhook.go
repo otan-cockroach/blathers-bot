@@ -270,6 +270,7 @@ func (srv *blathersServer) handleIssuesWebhook(
 		owner:  event.GetRepo().GetOwner().GetLogin(),
 		repo:   event.GetRepo().GetName(),
 		number: event.Issue.GetNumber(),
+		id:     event.GetIssue().GetID(),
 	}
 	builder.addLabel("O-community")
 
@@ -302,13 +303,27 @@ func (srv *blathersServer) handleIssuesWebhook(
 	// If we haven't found anything by issues, fallback to trying to use arbitrary keywords.
 	if len(participantToReasons) == 0 {
 		writeLogf(ctx, "failed to find any related issues; trying keywords")
-		for team, keywords := range findTeamsFromKeywords(event.GetIssue().GetBody()) {
-			// TODO: add projects.
-			for _, owner := range teamToContacts[team] {
-				participantToReasons[owner] = append(
-					participantToReasons[owner],
-					fmt.Sprintf("found keywords: %s", strings.Join(keywords, ",")),
-				)
+		teamsToKeywords := findTeamsFromKeywords(event.GetIssue().GetBody())
+		if len(teamsToKeywords) > 0 {
+			var teams []string
+			for team := range teamsToKeywords {
+				teams = append(teams, team)
+			}
+			teamsToProjects, err := findProjectsForTeams(ctx, ghClient, teams)
+			if err != nil {
+				return wrapf(ctx, err, "error finding relevant projects")
+			}
+			for team, keywords := range teamsToKeywords {
+				// TODO: add projects.
+				if projectID, ok := teamsToProjects[team]; ok {
+					builder.addProject(projectID)
+				}
+				for _, owner := range teamToContacts[team] {
+					participantToReasons[owner] = append(
+						participantToReasons[owner],
+						fmt.Sprintf("found keywords: %s", strings.Join(keywords, ",")),
+					)
+				}
 			}
 		}
 	}

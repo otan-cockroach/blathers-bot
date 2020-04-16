@@ -14,10 +14,12 @@ type githubIssueCommentBuilder struct {
 	paragraphs []string
 	labels     map[string]struct{}
 	assignees  map[string]struct{}
+	projects   map[int64]struct{}
 
 	mustComment bool
 	owner       string
 	repo        string
+	id          int64
 	number      int
 }
 
@@ -39,6 +41,14 @@ func (icb *githubIssueCommentBuilder) addAssignee(a string) *githubIssueCommentB
 		icb.assignees = map[string]struct{}{}
 	}
 	icb.assignees[a] = struct{}{}
+	return icb
+}
+
+func (icb *githubIssueCommentBuilder) addProject(a int64) *githubIssueCommentBuilder {
+	if icb.projects == nil {
+		icb.projects = map[int64]struct{}{}
+	}
+	icb.projects[a] = struct{}{}
 	return icb
 }
 
@@ -135,6 +145,25 @@ func (icb *githubIssueCommentBuilder) finish(ctx context.Context, ghClient *gith
 		)
 		if err != nil {
 			return wrapf(ctx, err, "error adding labels")
+		}
+	}
+
+	if len(icb.projects) > 0 {
+		for projectID := range icb.projects {
+			cols, _, err := ghClient.Projects.ListProjectColumns(ctx, projectID, nil)
+			if err != nil {
+				return wrapf(ctx, err, "error adding project cols")
+			}
+			if len(cols) > 0 {
+				colID := cols[0].GetID()
+				_, _, err := ghClient.Projects.CreateProjectCard(ctx, colID, &github.ProjectCardOptions{
+					ContentID:   icb.id,
+					ContentType: "Issue",
+				})
+				if err != nil {
+					return wrapf(ctx, err, "error creating project card")
+				}
+			}
 		}
 	}
 
