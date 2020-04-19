@@ -2,7 +2,6 @@ package blathers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/go-github/v30/github"
 )
@@ -22,7 +21,7 @@ func findProjectsForTeams(
 	for _, team := range teams {
 		board, ok := teamToBoards[team]
 		if !ok {
-			return nil, fmt.Errorf("cannot find board name for %s", board.name)
+			continue
 		}
 		k := key{owner: board.owner, repo: board.repo}
 		searchBy[k] = append(searchBy[k], val{name: board.name, team: team})

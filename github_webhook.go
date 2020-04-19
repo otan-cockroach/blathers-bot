@@ -300,49 +300,64 @@ func (srv *blathersServer) handleIssuesWebhook(
 		return wrapf(ctx, err, "failed to find relevant users")
 	}
 
-	// If we haven't found anything by issues, fallback to trying to use arbitrary keywords.
-	if len(participantToReasons) == 0 {
-		writeLogf(ctx, "failed to find any related issues; trying keywords")
-		teamsToKeywords := findTeamsFromKeywords(event.GetIssue().GetBody())
-		if len(teamsToKeywords) > 0 {
-			var teams []string
-			for team := range teamsToKeywords {
-				teams = append(teams, team)
+	teamsToKeywords := findTeamsFromKeywords(event.GetIssue().GetBody())
+	if len(teamsToKeywords) > 0 {
+		var teams []string
+		for team := range teamsToKeywords {
+			teams = append(teams, team)
+		}
+		teamsToProjects, err := findProjectsForTeams(ctx, ghClient, teams)
+		if err != nil {
+			return wrapf(ctx, err, "error finding relevant projects")
+		}
+		for team, keywords := range teamsToKeywords {
+			if projectID, ok := teamsToProjects[team]; ok {
+				builder.addProject(projectID)
 			}
-			teamsToProjects, err := findProjectsForTeams(ctx, ghClient, teams)
-			if err != nil {
-				return wrapf(ctx, err, "error finding relevant projects")
-			}
-			for team, keywords := range teamsToKeywords {
-				// TODO: add projects.
-				if projectID, ok := teamsToProjects[team]; ok {
-					builder.addProject(projectID)
-				}
-				for _, owner := range teamToContacts[team] {
-					participantToReasons[owner] = append(
-						participantToReasons[owner],
-						fmt.Sprintf("found keywords: %s", strings.Join(keywords, ",")),
-					)
-				}
+			for _, owner := range teamToContacts[team] {
+				participantToReasons[owner] = append(
+					participantToReasons[owner],
+					fmt.Sprintf("found keywords: %s", strings.Join(keywords, ",")),
+				)
 			}
 		}
 	}
 
 	if len(participantToReasons) == 0 {
-		// TODO(otan): proper fallback to an oncall rotation.
-		builder.addLabel("X-blathers-untriaged")
-		builder.addParagraph(`I was unable to automatically find someone to ping. We will get back to you soon. However, if we have not gotten back to your issue within a few business days, you can try the following:
-* Join our [community slack channel](https://cockroa.ch/slack) and ask on #cockroachdb.
-* Try find someone from [here](https://github.com/orgs/cockroachdb/people) if you know they worked closely on the area and cc them.`)
+		writeLogf(ctx, "resorting to support oncall")
+		oncalls, err := srv.FindSupportOncall(ctx, ghClient, event.GetRepo().GetOwner().GetLogin())
+		if err != nil {
+			writeLogf(ctx, "failed to find support oncall: %s", err.Error())
+		} else {
+			for _, oncall := range oncalls {
+				participantToReasons[oncall] = append(
+					participantToReasons[oncall],
+					fmt.Sprintf("support oncall"),
+				)
+			}
+			if len(oncalls) > 0 {
+				builder.addLabel("X-blathers-oncall")
+			}
+		}
 	} else {
 		builder.addLabel("X-blathers-triaged")
+	}
+
+	if len(participantToReasons) == 0 {
+		builder.addLabel("X-blathers-untriaged")
+		builder.addParagraph(`I was unable to automatically find someone to ping.`)
+	} else {
 		var assignedReasons listBuilder
 		for author, reasons := range participantToReasons {
 			assignedReasons = assignedReasons.addf("@%s (%s)", author, strings.Join(reasons, ", "))
+			// Adding an assignee is very aggressive. Blathers is a benevolent owl.
 			// builder.addAssignee(author)
 		}
 		builder.addParagraphf("I have CC'd a few people who may be able to assist you:\n%s", assignedReasons.String())
 	}
+	builder.addParagraphf(`If we have not gotten back to your issue within a few business days, you can try the following:
+* Join our [community slack channel](https://cockroa.ch/slack) and ask on #cockroachdb.
+* Try find someone from [here](https://github.com/orgs/cockroachdb/people) if you know they worked closely on the area and CC them.`)
 
 	builder.setMustComment(true)
 	return builder.finish(ctx, ghClient)
@@ -475,7 +490,6 @@ func (srv *blathersServer) handlePullRequestWebhook(
 			if err != nil {
 				return wrapf(ctx, err, "failed to find relevant users")
 			}
-			builder.setMustComment(true)
 			if len(participantToReasons) == 0 {
 				builder.addParagraph(`I was unable to automatically find a reviewer. You can try CCing one of the following members:
 * A person you worked with closely on this PR.
@@ -483,6 +497,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 * Join our [community slack channel](https://cockroa.ch/slack) and ask on #contributors.
 * Try find someone else from [here](https://github.com/orgs/cockroachdb/people).`)
 			} else {
+				builder.setMustComment(true)
 				var reviewerReasons listBuilder
 				for author, reasons := range participantToReasons {
 					reviewerReasons = reviewerReasons.addf("@%s (%s)", author, strings.Join(reasons, ", "))

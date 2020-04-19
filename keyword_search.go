@@ -5,13 +5,14 @@ import "regexp"
 var teamToKeyword = map[string][]string{
 	"appdev":        {`(?i)\borm\b`, `ORM`, `(?i)django`, `(?i)hibernate`},
 	"bulk-io":       {`(?i)backup`, `(?i)import`, `(?i)export`, `(?i)restore`, `(?i)changefeed`, `(?i)cdc`},
-	"sql-schema":    {`(?i)alter\b`, `(?i)create\s+(table|index|database)`},
+	"sql-schema":    {`(?i)(alter|drop)\s+(table|index|database)`},
 	"kv":            {`(?i)\bkv\b`, `(?i)HLC`},
 	"sql-features":  {`(?i)sql statement`, `(?i)join`, `(?i)pg_`},
 	"vectorized":    {`(?i)vectorize`},
 	"observability": {`(?i)admin\s+ui\b`},
 	"storage":       {`(?i)rocks\s+db`, `(?i)pebble`},
 	"optimizer":     {`(?i)explain(^ your problem)`},
+	"cloud":         {`(?i)kubernetes`, `(?i)cloud`},
 }
 
 var teamToContacts = map[string][]string{
@@ -24,6 +25,7 @@ var teamToContacts = map[string][]string{
 	"observability": {`dhartunian`},
 	"storage":       {`petermattis`},
 	"optimizer":     {`RaduBerinde`},
+	"cloud":         {`joshimhoff`},
 }
 
 type board struct {
@@ -41,7 +43,7 @@ var teamToBoards = map[string]board{
 	"vectorized":    {"cockroachdb", "cockroach", "SQL Execution"},
 	"observability": {"cockroachdb", "cockroach", "Web UI"},
 	"storage":       {"cockroachdb", "", "Storage"},
-	"optimizer":     {"cockroachdb", "cockroach", "SQL Planning"},
+	"optimizer":     {"cockroachdb", "cockroach", "SQL Optimizer"},
 }
 
 // findTeamsFromKeywords maps from owner to a list of suspect keywords.

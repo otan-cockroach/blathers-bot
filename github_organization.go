@@ -20,8 +20,8 @@ func isOrgMember(
 // TODO: cache this.
 func getOrganizationLogins(
 	ctx context.Context, ghClient *github.Client, org string,
-) (map[string]struct{}, error) {
-	logins := make(map[string]struct{})
+) (map[string]*github.User, error) {
+	logins := make(map[string]*github.User)
 	opts := &github.ListMembersOptions{
 		ListOptions: github.ListOptions{
 			PerPage: 100,
@@ -38,7 +38,7 @@ func getOrganizationLogins(
 			return nil, wrapf(ctx, err, "error listing org members")
 		}
 		for _, member := range members {
-			logins[member.GetLogin()] = struct{}{}
+			logins[member.GetLogin()] = member
 		}
 		more = resp.NextPage != 0
 		if more {

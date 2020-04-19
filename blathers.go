@@ -19,6 +19,7 @@ type blathersServer struct {
 	githubAppSecret     string
 	githubAppPrivateKey *rsa.PrivateKey
 	githubClientID      int64
+	opsgenieAPIKey      string
 
 	tokenStoreMu struct {
 		store map[installationID]*github.InstallationToken
@@ -47,6 +48,7 @@ func init() {
 
 	srv = &blathersServer{
 		githubAppSecret:     os.Getenv("BLATHERS_GITHUB_APP_SECRET"),
+		opsgenieAPIKey:      os.Getenv("BLATHERS_OPSGENIE_API_KEY"),
 		githubAppPrivateKey: pk,
 		githubClientID:      githubClientID,
 	}
