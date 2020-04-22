@@ -25,6 +25,14 @@ func TestFindMentionedIssues(t *testing.T) {
 				{"cockroachdb", "asdf", 1234},
 			},
 		},
+		{
+			owner: "cockroachdb",
+			repo:  "cockroach",
+			text:  "```ignore me #1``` accept me #2 ```ignore me #3```",
+			expected: []mentionedIssue{
+				{"cockroachdb", "cockroach", 2},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

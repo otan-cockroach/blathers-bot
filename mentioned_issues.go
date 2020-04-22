@@ -14,8 +14,9 @@ type mentionedIssue struct {
 }
 
 var (
-	// numberberRegex captures #1234 and cockroachdb/cockroach#1234
-	numberberRegex = regexp.MustCompile(`(([a-zA-Z_-]+)/([a-zA-Z_-]+))?#(\d+)`)
+	removeNestedQuotesRegex = regexp.MustCompile("```[^`]*```")
+	// numberRegex captures #1234 and cockroachdb/cockroach#1234
+	numberRegex = regexp.MustCompile(`(([a-zA-Z_-]+)/([a-zA-Z_-]+))?#(\d+)`)
 	// fullIssueURLRegex captures URLs directing to issues.
 	fullIssueURLRegex = regexp.MustCompile(`github.com/([a-zA-Z_-]+)/([a-zA-Z-_]+)/(pull|issues)/(\d+)`)
 )
@@ -23,8 +24,9 @@ var (
 // findMentionedIssues returns issues that have been mentioned in
 // a body of text that belongs to the given owner.
 func findMentionedIssues(owner string, defaultRepo string, text string) []mentionedIssue {
+	text = removeNestedQuotesRegex.ReplaceAllString(text, "")
 	mentionedIssues := make(map[mentionedIssue]struct{})
-	for _, group := range numberberRegex.FindAllStringSubmatch(text, -1) {
+	for _, group := range numberRegex.FindAllStringSubmatch(text, -1) {
 		o := owner
 		if group[2] != "" {
 			o = group[2]
