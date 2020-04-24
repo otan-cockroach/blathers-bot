@@ -332,7 +332,7 @@ func (srv *blathersServer) handleIssuesWebhook(
 			for _, oncall := range oncalls {
 				participantToReasons[oncall] = append(
 					participantToReasons[oncall],
-					fmt.Sprintf("support oncall"),
+					fmt.Sprintf("member of the technical support engineering team"),
 				)
 			}
 			if len(oncalls) > 0 {
