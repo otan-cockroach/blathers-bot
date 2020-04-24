@@ -491,12 +491,14 @@ func (srv *blathersServer) handlePullRequestWebhook(
 				return wrapf(ctx, err, "failed to find relevant users")
 			}
 			if len(participantToReasons) == 0 {
+				builder.addLabel("X-blathers-untriaged")
 				builder.addParagraph(`I was unable to automatically find a reviewer. You can try CCing one of the following members:
 * A person you worked with closely on this PR.
 * The person who created the ticket, or a [CRDB organization member](https://github.com/orgs/cockroachdb/people) involved with the ticket (author, commenter, etc.).
 * Join our [community slack channel](https://cockroa.ch/slack) and ask on #contributors.
 * Try find someone else from [here](https://github.com/orgs/cockroachdb/people).`)
 			} else {
+				builder.addLabel("X-blathers-triaged")
 				builder.setMustComment(true)
 				var reviewerReasons listBuilder
 				for author, reasons := range participantToReasons {
