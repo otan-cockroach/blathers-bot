@@ -10,7 +10,7 @@ var teamToKeyword = map[string][]string{
 	"sql-features":  {`(?i)sql statement`, `(?i)join`, `(?i)pg_`},
 	"vectorized":    {`(?i)vectorize`},
 	"observability": {`(?i)admin\s+ui\b`},
-	"storage":       {`(?i)rocks\s+db`, `(?i)pebble`},
+	"storage":       {`(?i)rocks\s*db`, `(?i)pebble`},
 	"optimizer":     {`(?i)explain(^ your problem)`},
 	"cloud":         {`(?i)kubernetes`, `(?i)cloud`},
 }
