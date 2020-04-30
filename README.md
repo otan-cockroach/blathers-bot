@@ -1,8 +1,11 @@
 # Blathers
 
+## Getting Secrets
+Secrets can be viewed [here](https://console.cloud.google.com/functions/edit/us-central1/blathers-bot?project=cockroach-dev-inf).
+
 ## Developing Locally
 
-* Get this code: `go get -u go/src/github.com/otan-cockroach/blathers-bot` 
+* Get this code: `go get -u go/src/github.com/cockroachlabs/blathers-bot` 
 * `base64` encode the private key for the bot, then export it: `export BLATHERS_GITHUB_PRIVATE_KEY=<your token here>`.
 * Optionally set `BLATHERS_GITHUB_CLIENT_ID` if using a different app, and `BLATHERS_GITHUB_APP_SECRET` if the we should check the secret matches for the webhook.
 * Now can run the following to start the server
@@ -17,6 +20,12 @@ curl localhost:8080/github_webhook -H 'X-Github-Event: <event>' --header "Conten
 ```
 curl localhost:8080/github_webhook -H 'X-Github-Event: pull_request'  --header "Content-Type:application/json" --data "@./example_webhooks/app_webhook_synchronize"
 ```
+
+## Deployment
+After merging your change, click "Deploy" on [here](https://console.cloud.google.com/functions/edit/us-central1/blathers-bot?project=cockroach-dev-inf).
+
+## Re-deliver Payloads
+Go [here](https://github.com/settings/apps/blathers-crl/advanced) and click "redeliver" after you find a request you like.
 
 ## Blathers Inspiration
 > "Eeek! A bug...! Ah, I beg your pardon! I just don't like handling these things much!"
