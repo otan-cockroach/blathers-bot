@@ -261,21 +261,62 @@ func (srv *blathersServer) handleIssuesWebhook(
 		return err
 	}
 
-	if isMember {
-		writeLogf(ctx, "skipping as member is part of organization")
-		return nil
-	}
-
+	issue := event.GetIssue()
 	builder := githubIssueCommentBuilder{
 		labels: map[string]struct{}{},
 		owner:  event.GetRepo().GetOwner().GetLogin(),
 		repo:   event.GetRepo().GetName(),
-		number: event.Issue.GetNumber(),
-		id:     event.GetIssue().GetID(),
+		number: issue.GetNumber(),
+		id:     issue.GetID(),
 	}
+	authorName := event.Sender.GetLogin()
+	body := issue.GetBody()
+	if isMember {
+		writeLogf(ctx, "Running org member routine")
+		// Check to see if there is a missing C- label.
+		foundCLabel := false
+		foundALabel := false
+		for _, l := range issue.Labels {
+			if strings.HasPrefix(l.GetName(), "C-") {
+				foundCLabel = true
+			}
+			if strings.HasPrefix(l.GetName(), "A-") {
+				foundALabel = true
+			}
+		}
+		if !foundCLabel {
+			body = strings.ToLower(body)
+			guessedCLabel := false
+			// Try to guess if it's a bug.
+			if strings.Contains(body, "bug") {
+				builder.addLabel("C-bug")
+				guessedCLabel = true
+			} else if strings.Contains(body, "feature") || strings.Contains(body, "enhancement") {
+				builder.addLabel("C-enhancement")
+				guessedCLabel = true
+			}
+			if guessedCLabel {
+				builder.addParagraphf("Hi @%s, I've guessed the C-ategory of your issue "+
+					"and suitably labeled it. Please re-label if inaccurate.",
+					authorName)
+			} else {
+				builder.addParagraphf("Hi @%s, please add a C-ategory label to your issue. Check out "+
+					"the [label system docs](https://go.crdb.dev/p/issue-labels).",
+					authorName)
+			}
+			if !foundALabel {
+				builder.addParagraph("While you're here, please consider adding an A- label to help "+
+					"keep our repository tidy. ")
+			}
+			if err := builder.finish(ctx, ghClient); err != nil {
+				return wrapf(ctx, err, "failed to finish building issue comment")
+			}
+		}
+		return nil
+	}
+
 	builder.addLabel("O-community")
 
-	body := event.GetIssue().GetBody()
 	builder.addParagraph("Hello, I am Blathers. I am here to help you get the issue triaged.")
 	if strings.Contains(body, "Describe the problem") {
 		builder.addParagraph("Hoot - a bug! Though bugs are the bane of my existence, rest assured the wretched thing will get the best of care here.")
@@ -294,14 +335,14 @@ func (srv *blathersServer) handleIssuesWebhook(
 		event.GetRepo().GetOwner().GetLogin(),
 		event.GetRepo().GetName(),
 		event.Issue.GetNumber(),
-		event.GetIssue().GetBody(),
+		issue.GetBody(),
 		event.GetSender().GetLogin(),
 	)
 	if err != nil {
 		return wrapf(ctx, err, "failed to find relevant users")
 	}
 
-	teamsToKeywords := findTeamsFromKeywords(event.GetIssue().GetBody())
+	teamsToKeywords := findTeamsFromKeywords(issue.GetBody())
 	if len(teamsToKeywords) > 0 {
 		var teams []string
 		for team := range teamsToKeywords {
