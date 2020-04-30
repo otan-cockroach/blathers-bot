@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -363,6 +364,16 @@ func (srv *blathersServer) handleIssuesWebhook(
 	return builder.finish(ctx, ghClient)
 }
 
+func overrideStatus(currentState, nextState string) bool {
+	switch currentState {
+	case "APPROVED":
+		return nextState != "COMMENTED"
+	case "CHANGES_REQUESTED":
+		return nextState == "APPROVED" || nextState == "DISMISSED"
+	}
+	return true
+}
+
 // handlePullRequestWebhook handles the pull request component
 // of a webhook.
 func (srv *blathersServer) handlePullRequestWebhook(
@@ -394,8 +405,69 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		return err
 	}
 
+	// Request reviews from people who have previously commented.
+	if event.GetAction() == "synchronize" {
+		reviews, err := getReviews(
+			ctx,
+			ghClient,
+			event.GetRepo().GetOwner().GetLogin(),
+			event.GetRepo().GetName(),
+			event.GetNumber(),
+		)
+		if err != nil {
+			return err
+		}
+		reviewersByState := make(map[string]string)
+		for _, review := range reviews {
+			state := review.GetState()
+			// If the body contains lgtm, it's considered approved in CRDB land.
+			lgtmRegex := regexp.MustCompile("(^i)lgtm(^s obtained)")
+			if review.GetState() == "COMMENTED" && lgtmRegex.MatchString(review.GetBody()) {
+				state = "APPROVED"
+			}
+			if currentState, ok := reviewersByState[review.GetUser().GetLogin()]; ok {
+				if !overrideStatus(currentState, state) {
+					continue
+				}
+			}
+			reviewersByState[review.GetUser().GetLogin()] = state
+		}
+
+		reviewers := make([]string, 0, len(reviewersByState))
+		for reviewer, state := range reviewersByState {
+			if reviewer == event.GetSender().GetLogin() {
+				continue
+			}
+			if reviewer == event.GetPullRequest().GetUser().GetLogin() {
+				continue
+			}
+			if state == "CHANGES_REQUESTED" || state == "COMMENTED" {
+				// Let's only do this for @otan for now.
+				if reviewer == "otan" || event.GetSender().GetLogin() == "otan" {
+					reviewers = append(reviewers, reviewer)
+				}
+			}
+		}
+
+		if len(reviewers) > 0 {
+			writeLogf(ctx, "adding reviewers after found reviewers %#v for #%d", reviewers, event.GetNumber())
+			_, _, err = ghClient.PullRequests.RequestReviewers(
+				ctx,
+				event.GetRepo().GetOwner().GetLogin(),
+				event.GetRepo().GetName(),
+				event.GetNumber(),
+				github.ReviewersRequest{
+					Reviewers: reviewers,
+				},
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	if isMember {
-		writeLogf(ctx, "skipping as member is part of organization")
+		writeLogf(ctx, "skipping rest as member is part of organization")
 		return nil
 	}
 

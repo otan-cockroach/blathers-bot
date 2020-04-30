@@ -93,3 +93,30 @@ func hasReviews(
 	}
 	return len(reviews) > 0, nil
 }
+
+// getReviews returns whether there are reviewers on a given commit.
+func getReviews(
+	ctx context.Context, ghClient *github.Client, owner string, repo string, number int,
+) ([]*github.PullRequestReview, error) {
+	more := true
+	opts := &github.ListOptions{}
+	var allReviews []*github.PullRequestReview
+	for more {
+		reviews, resp, err := ghClient.PullRequests.ListReviews(
+			ctx,
+			owner,
+			repo,
+			number,
+			opts,
+		)
+		if err != nil {
+			return nil, wrapf(ctx, err, "erroring listing reviews")
+		}
+		allReviews = append(allReviews, reviews...)
+		more = resp.NextPage != 0
+		if more {
+			opts.Page = resp.NextPage
+		}
+	}
+	return allReviews, nil
+}
