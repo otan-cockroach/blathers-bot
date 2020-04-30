@@ -4,7 +4,7 @@ import "regexp"
 
 var teamToKeyword = map[string][]string{
 	"appdev": {`(?i)\borm\b`, `ORM`, `(?i)django`, `(?i)hibernate`,
-		`(?i)spring`, `(?i)ecto`, `(?i)activerecord`, `(?i)rails`, `(?i)sqlalchemy`,
+		`(?i)spring`, `(?i)\becto\b`, `(?i)activerecord`, `(?i)rails`, `(?i)sqlalchemy`,
 		`(?i)sequelize`, `(?i)jooq`, `(?i)pgjdbc`, `(?i)pgx`, `(?i)libpq`,
 		`(?i)cockroach-go`, `(?i)ponyorm`, `(?i)postico`, `(?i)peewee`, `(?i)flyway`,
 		`(?i)hasura`, `(?i)liquibase`, `(?i)gorm`, `(?i)alembic`, `(?i)knex`,
