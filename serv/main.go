@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/otan-cockroach/blathers-bot"
+	"github.com/cockroachlabs/blathers-bot"
 )
 
 // TODO(otan): consider using gin instead.
