@@ -11,7 +11,7 @@ Secrets can be viewed [here](https://console.cloud.google.com/functions/edit/us-
 ```
 go run ./serv
 ```
-* Then CURL your webhook request to test. Sample payloads are available [here](https://github.com/settings/apps/blathers-crl/advanced).
+* Then CURL your webhook request to test. Sample payloads are available [here](https://github.com/organizations/otan-cockroach/settings/apps/blathers-crl/advanced).
 ```
 curl localhost:8080/github_webhook -H 'X-Github-Event: <event>' --header "Content-Type:application/json" --data '<data>'
 ```
@@ -24,7 +24,7 @@ curl localhost:8080/github_webhook -H 'X-Github-Event: pull_request'  --header "
 After merging your change, click "Deploy" on [here](https://console.cloud.google.com/functions/edit/us-central1/blathers-bot?project=cockroach-dev-inf).
 
 ## Re-deliver Payloads
-Go [here](https://github.com/settings/apps/blathers-crl/advanced) and click "redeliver" after you find a request you like.
+Go [here](https://github.com/organizations/otan-cockroach/settings/apps/blathers-crl/advanced) and click "redeliver" after you find a request you like.
 
 ## Blathers Inspiration
 > "Eeek! A bug...! Ah, I beg your pardon! I just don't like handling these things much!"
