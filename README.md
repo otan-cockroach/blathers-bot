@@ -1,13 +1,12 @@
 # Blathers
 
 ## Getting Secrets
-Secrets can be viewed [here](https://console.cloud.google.com/functions/edit/us-central1/blathers-bot?project=cockroach-dev-inf).
+Secrets can be viewed [here](https://console.cloud.google.com/functions/edit/us-central1/blathers-bot?project=cockroach-dev-inf) under "Environment variables, networking, timeouts and more".
 
 ## Developing Locally
 
 * Get this code: `go get -u go/src/github.com/cockroachlabs/blathers-bot` 
 * `base64` encode the private key for the bot, then export it: `export BLATHERS_GITHUB_PRIVATE_KEY=<your token here>`.
-* Optionally set `BLATHERS_GITHUB_CLIENT_ID` if using a different app, and `BLATHERS_GITHUB_APP_SECRET` if the we should check the secret matches for the webhook.
 * Now can run the following to start the server
 ```
 go run ./serv
