@@ -3,7 +3,13 @@ package blathers
 import "regexp"
 
 var teamToKeyword = map[string][]string{
-	"appdev":        {`(?i)\borm\b`, `ORM`, `(?i)django`, `(?i)hibernate`},
+	"appdev": {`(?i)\borm\b`, `ORM`, `(?i)django`, `(?i)hibernate`,
+		`(?i)spring`, `(?i)ecto`, `(?i)activerecord`, `(?i)rails`, `(?i)sqlalchemy`,
+		`(?i)sequelize`, `(?i)jooq`, `(?i)pgjdbc`, `(?i)pgx`, `(?i)libpq`,
+		`(?i)cockroach-go`, `(?i)ponyorm`, `(?i)postico`, `(?i)peewee`, `(?i)flyway`,
+		`(?i)hasura`, `(?i)liquibase`, `(?i)gorm`, `(?i)alembic`, `(?i)knex`,
+		`(?i)prisma`, `(?i)psycopg2`, `(?i)tableplus`,
+	},
 	"bulk-io":       {`(?i)backup`, `(?i)import`, `(?i)export`, `(?i)restore`, `(?i)changefeed`, `(?i)cdc`},
 	"sql-schema":    {`(?i)(alter|drop)\s+(table|index|database)`},
 	"kv":            {`(?i)\bkv\b`, `(?i)HLC`},
