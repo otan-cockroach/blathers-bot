@@ -11,7 +11,7 @@ Secrets can be viewed [here](https://console.cloud.google.com/functions/edit/us-
 ```
 go run ./serv
 ```
-* Then CURL your webhook request to test.
+* Then CURL your webhook request to test. Sample payloads are available [here](https://github.com/settings/apps/blathers-crl/advanced).
 ```
 curl localhost:8080/github_webhook -H 'X-Github-Event: <event>' --header "Content-Type:application/json" --data '<data>'
 ```
