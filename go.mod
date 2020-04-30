@@ -1,4 +1,4 @@
-module github.com/otan-cockroach/blathers-bot
+module github.com/cockroachlabs/blathers-bot
 
 go 1.13
 
@@ -15,7 +15,7 @@ require (
 	github.com/cockroachdb/circuitbreaker v2.2.1+incompatible // indirect
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292 // indirect
 	github.com/cockroachdb/cockroach v19.2.5+incompatible // indirect
-	github.com/cockroachdb/pebble v0.0.0-20200410211910-de7fc1b547d5 // indirect
+	github.com/cockroachdb/pebble v0.0.0-20200429180632-72c124409fc8 // indirect
 	github.com/cockroachdb/ttycolor v0.0.0-20180709150743-a1d5aaeb377d // indirect
 	github.com/coreos/etcd v3.3.20+incompatible // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
@@ -38,7 +38,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.6.6 // indirect
 	github.com/jackc/pgx v3.6.2+incompatible // indirect
 	github.com/knz/strtime v0.0.0-20200318182718-be999391ffa9 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
+	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lib/pq v1.3.0 // indirect
 	github.com/lightstep/lightstep-tracer-go v0.20.0 // indirect
@@ -60,8 +60,9 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/twpayne/go-geom v1.0.6 // indirect
 	go.etcd.io/etcd v3.3.20+incompatible
+	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79 // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
-	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
+	golang.org/x/sys v0.0.0-20200430202703-d923437fa56d // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/tools v0.0.0-20200410194907-79a7a3126eef // indirect
 	google.golang.org/grpc v1.28.1 // indirect
