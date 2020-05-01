@@ -10,7 +10,7 @@ var teamToKeyword = map[string][]string{
 		`(?i)hasura`, `(?i)liquibase`, `(?i)gorm`, `(?i)alembic`, `(?i)knex`,
 		`(?i)prisma`, `(?i)psycopg2`, `(?i)tableplus`,
 	},
-	"bulk-io":       {`(?i)backup`, `(?i)import`, `(?i)export`, `(?i)restore`, `(?i)changefeed`, `(?i)cdc`},
+	"bulk-io":       {`(?i)backup`, `(?i)import`, `(?i)export`, `(?i)cockroach dump`, `(?i)restore`, `(?i)changefeed`, `(?i)cdc`},
 	"sql-schema":    {`(?i)(alter|drop)\s+(table|index|database)`},
 	"kv":            {`(?i)\bkv\b`, `(?i)HLC`},
 	"sql-features":  {`(?i)sql statement`, `(?i)join`, `(?i)pg_`},
