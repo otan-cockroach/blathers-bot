@@ -305,7 +305,7 @@ func (srv *blathersServer) handleIssuesWebhook(
 					authorName)
 			}
 			if !foundALabel {
-				builder.addParagraph("While you're here, please consider adding an A- label to help "+
+				builder.addParagraph("While you're here, please consider adding an A- label to help " +
 					"keep our repository tidy. ")
 			}
 			if err := builder.finish(ctx, ghClient); err != nil {
@@ -484,7 +484,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 			}
 			if state == "CHANGES_REQUESTED" || state == "COMMENTED" {
 				// Let's only do this for @otan for now.
-				if reviewer == "otan" || event.GetSender().GetLogin() == "otan" {
+				if reviewer == "otan" {
 					reviewers = append(reviewers, reviewer)
 				}
 			}
