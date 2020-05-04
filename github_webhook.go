@@ -291,7 +291,7 @@ func (srv *blathersServer) handleIssuesWebhook(
 			if strings.Contains(body, "bug") {
 				builder.addLabel("C-bug")
 				guessedCLabel = true
-			} else if strings.Contains(body, "feature") || strings.Contains(body, "enhancement") {
+			} else if strings.Contains(body, "feature") || strings.Contains(body, "enhancement") || strings.Contains(body, "support") {
 				builder.addLabel("C-enhancement")
 				guessedCLabel = true
 			}
