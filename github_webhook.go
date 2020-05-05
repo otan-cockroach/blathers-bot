@@ -116,6 +116,15 @@ func (srv *blathersServer) handleStatusWebhook(
 	return handler(ctx, srv, event)
 }
 
+func silenceRequested(ls []*github.Label) bool {
+	for _, l := range ls {
+		if l.GetName() == "X-blathers-silence" {
+			return true
+		}
+	}
+	return false
+}
+
 type handlerKey struct {
 	context string
 	state   string
@@ -146,6 +155,9 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 
 			for _, pr := range prs {
 				if pr.GetState() != "open" {
+					continue
+				}
+				if silenceRequested(pr.Labels) {
 					continue
 				}
 				if pr.GetHead().GetSHA() != event.GetSHA() {
@@ -188,6 +200,9 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 			}
 
 			for _, pr := range prs {
+				if silenceRequested(pr.Labels) {
+					continue
+				}
 				if pr.GetHead().GetSHA() == event.GetSHA() {
 					numbers = append(numbers, pr.GetNumber())
 					// Only take the first one for now.
