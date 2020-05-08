@@ -573,7 +573,11 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		return err
 	}
 	if len(commits) > 1 {
-		ais = ais.add("We generally try and keep pull requests to one commit. [Please squash your commits](https://github.com/wprig/wprig/wiki/How-to-squash-commits), and re-push with `--force`.")
+		ais = ais.add(
+			`We notice you have more than one commit in your PR. We try break logical changes into separate commits, ` +
+				`but commits such as "fix typo" or "address review commits" should be ` +
+				`[squashed into one commit](https://github.com/wprig/wprig/wiki/How-to-squash-commits) and pushed with ` + "`--force`",
+		)
 	}
 	for _, commit := range commits {
 		if !strings.Contains(commit.GetCommit().GetMessage(), "Release note") {
@@ -591,7 +595,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	} else {
 		builder.setMustComment(true)
 		ais = ais.add("When CI has completed, please ensure no errors have appeared.")
-		builder.addParagraphf("Before a member of our team reviews your PR, I have a few suggestions for tidying it up for review:\n%s", ais.String())
+		builder.addParagraphf("Before a member of our team reviews your PR, I have some potential action items for you:\n%s", ais.String())
 	}
 
 	if len(event.GetPullRequest().RequestedReviewers) == 0 && len(event.GetPullRequest().RequestedTeams) == 0 {
