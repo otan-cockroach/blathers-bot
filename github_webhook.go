@@ -544,6 +544,8 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		},
 	}
 
+	builder.addLabel("O-community")
+
 	// Send guidelines.
 	if event.GetSender().GetLogin() == "otan" {
 		builder.addParagraph("Welcome back, creator. Thank you for testing me.")
