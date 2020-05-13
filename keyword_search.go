@@ -35,21 +35,22 @@ var teamToContacts = map[string][]string{
 }
 
 type board struct {
-	owner string
-	repo  string
-	name  string
+	owner  string
+	repo   string
+	name   string
+	column string
 }
 
 var teamToBoards = map[string]board{
-	"appdev":        {"cockroachdb", "", "AppDev"},
-	"bulk-io":       {"cockroachdb", "cockroach", "Bulk I/O Backlog"},
-	"sql-schema":    {"cockroachdb", "cockroach", "SQL Schema"},
-	"kv":            {"cockroachdb", "cockroach", "KV"},
-	"sql-features":  {"cockroachdb", "cockroach", "SQL Features"},
-	"vectorized":    {"cockroachdb", "cockroach", "SQL Execution"},
-	"observability": {"cockroachdb", "cockroach", "Web UI"},
-	"storage":       {"cockroachdb", "", "Storage"},
-	"optimizer":     {"cockroachdb", "cockroach", "SQL Optimizer"},
+	"appdev":        {"cockroachdb", "", "AppDev", "Backlog"},
+	"bulk-io":       {"cockroachdb", "cockroach", "Bulk I/O Backlog", "Triage"},
+	"sql-schema":    {"cockroachdb", "cockroach", "SQL Schema", "Triage"},
+	"kv":            {"cockroachdb", "cockroach", "KV", "Incoming"},
+	"sql-features":  {"cockroachdb", "cockroach", "SQL Features", "Triage"},
+	"vectorized":    {"cockroachdb", "cockroach", "SQL Execution", "Triage"},
+	"observability": {"cockroachdb", "cockroach", "Web UI", "Landing Pad"},
+	"storage":       {"cockroachdb", "", "Storage", "Incoming"},
+	"optimizer":     {"cockroachdb", "cockroach", "SQL Optimizer", "Triage"},
 }
 
 // findTeamsFromKeywords maps from owner to a list of suspect keywords.

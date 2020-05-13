@@ -3,7 +3,7 @@ package blathers
 import (
 	"context"
 
-	"github.com/google/go-github/v30/github"
+	"github.com/google/go-github/v31/github"
 )
 
 // githubPullRequestIssueCommentBuilder wraps githubIssueCommentBuilder, adding PR-based issue
