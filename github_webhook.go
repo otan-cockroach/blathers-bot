@@ -131,7 +131,9 @@ type handlerKey struct {
 }
 
 var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServer, event *github.StatusEvent) error{
-	{"GitHub CI (Cockroach)", "failure"}: func(ctx context.Context, srv *blathersServer, event *github.StatusEvent) error {
+	// This is disabled due to mixed feelings.
+	// Alternative: https://teamcity.cockroachdb.com/profile.html?item=userNotifications.
+	{"__GitHub CI (Cockroach)", "failure"}: func(ctx context.Context, srv *blathersServer, event *github.StatusEvent) error {
 		ghClient := srv.getGithubClientFromInstallation(
 			ctx,
 			installationID(event.Installation.GetID()),
