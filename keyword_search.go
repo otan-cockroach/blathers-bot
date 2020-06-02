@@ -26,7 +26,7 @@ var teamToContacts = map[string][]string{
 	"bulk-io":       {`cockroachdb/bulk-io`},
 	"sql-schema":    {`lucy-zhang`},
 	"kv":            {`nvanbenschoten`},
-	"sql-features":  {`jordanlewis`},
+	"sql-features":  {`solongordon`},
 	"vectorized":    {`asubiotto`},
 	"observability": {`dhartunian`},
 	"storage":       {`petermattis`},
