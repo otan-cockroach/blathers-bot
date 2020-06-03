@@ -48,7 +48,7 @@ var teamToBoards = map[string]board{
 	"kv":            {"cockroachdb", "cockroach", "KV", "Incoming"},
 	"sql-features":  {"cockroachdb", "cockroach", "SQL Features", "Triage"},
 	"vectorized":    {"cockroachdb", "cockroach", "SQL Execution", "Triage"},
-	"observability": {"cockroachdb", "cockroach", "Web UI", "Landing Pad"},
+	"observability": {"cockroachdb", "cockroach", "Observability", "Backlog"},
 	"storage":       {"cockroachdb", "", "Storage", "Incoming"},
 	"optimizer":     {"cockroachdb", "cockroach", "SQL Optimizer", "Triage"},
 }
