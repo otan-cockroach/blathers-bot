@@ -590,10 +590,6 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		}
 	}
 
-	if !strings.Contains(event.GetPullRequest().GetBody(), "Release note") {
-		ais = ais.add("Please ensure your pull request description contains a [release note](https://wiki.crdb.io/wiki/spaces/CRDB/pages/186548364/Release+notes) - this can be the same as the one in your commit message.")
-	}
-
 	if len(ais) == 0 {
 		builder.addParagraph("My owl senses detect your PR is good for review. Please keep an eye out for any test failures in CI.")
 	} else {
