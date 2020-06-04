@@ -12,7 +12,7 @@ var teamToKeyword = map[string][]string{
 	},
 	"bulk-io":       {`(?i)backup`, `(?i)import`, `(?i)export`, `(?i)cockroach dump`, `(?i)restore`, `(?i)changefeed`, `(?i)cdc`},
 	"sql-schema":    {`(?i)(alter|drop)\s+(table|index|database)`},
-	"kv":            {`(?i)\bkv\b`, `(?i)HLC`},
+	"kv":            {`(?i)\bkv\b`, `(?i)HLC`, `(?i)raft`},
 	"sql-features":  {`(?i)sql statement`, `(?i)join`, `(?i)pg_`},
 	"vectorized":    {`(?i)vectorize`},
 	"observability": {`(?i)admin\s+ui\b`},
