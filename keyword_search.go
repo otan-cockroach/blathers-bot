@@ -15,7 +15,7 @@ var teamToKeyword = map[string][]string{
 	"kv":            {`(?i)\bkv\b`, `(?i)HLC`, `(?i)raft`},
 	"sql-features":  {`(?i)sql statement`, `(?i)join`, `(?i)pg_`},
 	"vectorized":    {`(?i)vectorize`},
-	"observability": {`(?i)admin\s+ui\b`},
+	"observability": {`(?i)admin\s+ui\b`, `(?i)web\s+ui\b`},
 	"storage":       {`(?i)rocks\s*db`, `(?i)pebble`},
 	"optimizer":     {`(?i)explain(^ your problem)`},
 	"cloud":         {`(?i)kubernetes`, `(?i)cloud`},
