@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/google/go-github/v31/github"
+	"github.com/google/go-github/v32/github"
 )
 
 func findProjectsForTeams(

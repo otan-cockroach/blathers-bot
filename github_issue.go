@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/go-github/v31/github"
+	"github.com/google/go-github/v32/github"
 )
 
 // githubIssueCommentBuilder handles building a GitHub issue comment.

@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/google/go-github/v31/github"
+	"github.com/google/go-github/v32/github"
 )
 
 // blathersServer is the server that powers Blathers.
