@@ -17,7 +17,7 @@ func TestFindMentionedIssues(t *testing.T) {
 		{
 			owner: "cockroachdb",
 			repo:  "cockroach",
-			text:  `Hello! I have mentioned issue #12345, cockroachdb/asdf#1234, ignoreme/abc#4555 as well as issue github.com/cockroachdb/blobby/issues/34567, ignore github.com/notcockroachdb/somethingelse/4444 and PR https://github.com/cockroachdb/lobby/pull/118999 and duplicate https://github.com/cockroachdb/cockroach/pull/12345.`,
+			text:  `Hello! I have mentioned issue #12345, cockroachdb/asdf#1234, ignoreme/abc#4555 #44 as well as issue github.com/cockroachdb/blobby/issues/34567, ignore github.com/notcockroachdb/somethingelse/4444 and PR https://github.com/cockroachdb/lobby/pull/118999 and duplicate https://github.com/cockroachdb/cockroach/pull/12345.`,
 			expected: []mentionedIssue{
 				{"cockroachdb", "cockroach", 12345},
 				{"cockroachdb", "blobby", 34567},
@@ -28,9 +28,9 @@ func TestFindMentionedIssues(t *testing.T) {
 		{
 			owner: "cockroachdb",
 			repo:  "cockroach",
-			text:  "```ignore me #1``` accept me #2 ```ignore me #3```",
+			text:  "```ignore me #1111``` accept me #2222 ```ignore me #3333```",
 			expected: []mentionedIssue{
-				{"cockroachdb", "cockroach", 2},
+				{"cockroachdb", "cockroach", 2222},
 			},
 		},
 	}

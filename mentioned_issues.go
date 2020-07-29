@@ -42,6 +42,10 @@ func findMentionedIssues(owner string, defaultRepo string, text string) []mentio
 		if err != nil {
 			continue
 		}
+		// Ignore `uname -a` output greedily.
+		if number < 100 {
+			continue
+		}
 		mentionedIssues[mentionedIssue{owner: o, repo: r, number: int(number)}] = struct{}{}
 	}
 
