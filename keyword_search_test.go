@@ -20,8 +20,8 @@ func TestFindTeamsFromKeywords(t *testing.T) {
 		{
 			`my backup is failing! i executed this SQL statement to get it`,
 			map[string][]string{
-				"bulk-io":      {"backup"},
-				"sql-features": {"SQL statement"},
+				"bulk-io":        {"backup"},
+				"sql-experience": {"SQL statement"},
 			},
 		},
 		// Ensure default templates don't cause anyone to get pinged.

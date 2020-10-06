@@ -10,28 +10,28 @@ var teamToKeyword = map[string][]string{
 		`(?i)hasura`, `(?i)liquibase`, `(?i)gorm`, `(?i)alembic`, `(?i)knex`,
 		`(?i)prisma`, `(?i)psycopg2`, `(?i)tableplus`,
 	},
-	"bulk-io":       {`(?i)backup`, `(?i)import\b`, `(?i)export`, `(?i)cockroach dump`, `(?i)restore`, `(?i)changefeed`, `(?i)cdc`},
-	"sql-schema":    {`(?i)(alter|drop)\s+(table|index|database)`},
-	"kv":            {`(?i)\bkv\b`, `(?i)HLC`, `(?i)raft`},
-	"sql-features":  {`(?i)sql statement`, `(?i)join\b`, `(?i)pg_`},
-	"vectorized":    {`(?i)vectorize`},
-	"observability": {`(?i)admin\s+ui\b`, `(?i)web\s+ui\b`},
-	"storage":       {`(?i)rocks\s*db`, `(?i)pebble`},
-	"optimizer":     {`(?i)explain(^ your problem)`},
-	"cloud":         {`(?i)kubernetes`, `(?i)cloud`},
+	"bulk-io":        {`(?i)backup`, `(?i)import\b`, `(?i)export`, `(?i)cockroach dump`, `(?i)restore`, `(?i)changefeed`, `(?i)cdc`},
+	"sql-schema":     {`(?i)(alter|drop)\s+(table|index|database)`},
+	"kv":             {`(?i)\bkv\b`, `(?i)HLC`, `(?i)raft`},
+	"sql-experience": {`(?i)sql statement`, `(?i)join\b`, `(?i)pg_`},
+	"vectorized":     {`(?i)vectorize`},
+	"observability":  {`(?i)admin\s+ui\b`, `(?i)web\s+ui\b`},
+	"storage":        {`(?i)rocks\s*db`, `(?i)pebble`},
+	"optimizer":      {`(?i)explain(^ your problem)`},
+	"cloud":          {`(?i)kubernetes`, `(?i)cloud`},
 }
 
 var teamToContacts = map[string][]string{
-	"appdev":        {`rafiss`},
-	"bulk-io":       {`cockroachdb/bulk-io`},
-	"sql-schema":    {`lucy-zhang`},
-	"kv":            {`nvanbenschoten`},
-	"sql-features":  {`solongordon`},
-	"vectorized":    {`asubiotto`},
-	"observability": {`dhartunian`},
-	"storage":       {`petermattis`},
-	"optimizer":     {`RaduBerinde`},
-	"cloud":         {`joshimhoff`},
+	"appdev":         {`rafiss`},
+	"bulk-io":        {`cockroachdb/bulk-io`},
+	"sql-schema":     {`lucy-zhang`},
+	"kv":             {`nvanbenschoten`},
+	"sql-experience": {`solongordon`, `rafiss`},
+	"vectorized":     {`asubiotto`},
+	"observability":  {`dhartunian`},
+	"storage":        {`petermattis`},
+	"optimizer":      {`RaduBerinde`},
+	"cloud":          {`joshimhoff`},
 }
 
 type board struct {
@@ -42,15 +42,15 @@ type board struct {
 }
 
 var teamToBoards = map[string]board{
-	"appdev":        {"cockroachdb", "", "AppDev", "Backlog"},
-	"bulk-io":       {"cockroachdb", "cockroach", "Bulk I/O Backlog", "Triage"},
-	"sql-schema":    {"cockroachdb", "cockroach", "SQL Schema", "Triage"},
-	"kv":            {"cockroachdb", "cockroach", "KV Backlog", "Incoming"},
-	"sql-features":  {"cockroachdb", "cockroach", "SQL Features", "Triage"},
-	"vectorized":    {"cockroachdb", "cockroach", "SQL Execution", "Triage"},
-	"observability": {"cockroachdb", "cockroach", "Observability", "Backlog"},
-	"storage":       {"cockroachdb", "", "Storage", "Incoming"},
-	"optimizer":     {"cockroachdb", "cockroach", "SQL Optimizer", "Triage"},
+	"appdev":         {"cockroachdb", "", "AppDev", "Backlog"},
+	"bulk-io":        {"cockroachdb", "cockroach", "Bulk I/O Backlog", "Triage"},
+	"sql-schema":     {"cockroachdb", "cockroach", "SQL Schema", "Triage"},
+	"kv":             {"cockroachdb", "cockroach", "KV Backlog", "Incoming"},
+	"sql-experience": {"cockroachdb", "cockroach", "SQL Experience", "Triage"},
+	"vectorized":     {"cockroachdb", "cockroach", "SQL Execution", "Triage"},
+	"observability":  {"cockroachdb", "cockroach", "Observability", "Backlog"},
+	"storage":        {"cockroachdb", "", "Storage", "Incoming"},
+	"optimizer":      {"cockroachdb", "cockroach", "SQL Optimizer", "Triage"},
 }
 
 // findTeamsFromKeywords maps from owner to a list of suspect keywords.
