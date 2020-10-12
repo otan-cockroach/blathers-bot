@@ -294,8 +294,6 @@ func (srv *blathersServer) handleIssueOpened(
 		// Check to see if there is a missing C- label.
 		foundCLabel := false
 		foundALabel := false
-		isReleaseBlocker := false
-		foundBranchLabel := false
 		for _, l := range issue.Labels {
 			if strings.HasPrefix(l.GetName(), "C-") {
 				foundCLabel = true
@@ -303,16 +301,6 @@ func (srv *blathersServer) handleIssueOpened(
 			if strings.HasPrefix(l.GetName(), "A-") {
 				foundALabel = true
 			}
-			if strings.HasPrefix(l.GetName(), "branch-") {
-				foundBranchLabel = true
-			}
-			if l.GetName() == "release-blocker" {
-				isReleaseBlocker = true
-			}
-		}
-		if isReleaseBlocker && !foundBranchLabel {
-			builder.addParagraphf("Hi @%s, please add branch-* labels to identify which branch(es) this release-blocker affects.",
-				authorName)
 		}
 		if !foundCLabel {
 			body = strings.ToLower(body)
