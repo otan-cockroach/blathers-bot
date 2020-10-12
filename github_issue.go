@@ -23,6 +23,16 @@ type githubIssueCommentBuilder struct {
 	number      int
 }
 
+func githubIssueCommentBuilderFromEvent(event *github.IssuesEvent) githubIssueCommentBuilder {
+	return githubIssueCommentBuilder{
+		labels: map[string]struct{}{},
+		owner:  event.GetRepo().GetOwner().GetLogin(),
+		repo:   event.GetRepo().GetName(),
+		number: event.GetIssue().GetNumber(),
+		id:     event.GetIssue().GetID(),
+	}
+}
+
 func (icb *githubIssueCommentBuilder) addParagraph(paragraph string) *githubIssueCommentBuilder {
 	icb.paragraphs = append(icb.paragraphs, paragraph)
 	return icb
