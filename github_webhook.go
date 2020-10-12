@@ -448,7 +448,7 @@ func (srv *blathersServer) handleIssueLabelled(
 	builder.addParagraphf(
 		"Hi @%s, please add branch-* labels to identify which branch(es) this release-blocker affects.",
 		event.Sender.GetLogin(),
-	)
+	).setMustComment(true)
 
 	if err := builder.finish(ctx, ghClient); err != nil {
 		return wrapf(ctx, err, "failed to finish building issue comment")
