@@ -243,26 +243,33 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 	},
 }
 
-// handleIssuesWebhook handles the pull request component
-// of a webhook.
+// handleIssuesWebhook handles the issue component of a webhook.
 func (srv *blathersServer) handleIssuesWebhook(
 	ctx context.Context, event *github.IssuesEvent,
 ) error {
 	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Webhook][Issue #%d]", event.Issue.GetNumber()))
 	writeLogf(ctx, "handling issues action: %s", event.GetAction())
 
-	switch event.GetAction() {
-	case "opened":
-	default:
-		writeLogf(ctx, "not an event we care about")
-		return nil
-	}
-
 	if event.Issue.PullRequestLinks != nil {
 		writeLogf(ctx, "ignoring pull requests")
 		return nil
 	}
 
+	switch event.GetAction() {
+	case "opened":
+		return srv.handleIssueOpened(ctx, event)
+	case "labeled", "unlabeled":
+		return srv.handleIssueLabelled(ctx, event)
+	default:
+		writeLogf(ctx, "not an event we care about")
+		return nil
+	}
+}
+
+// handleIssueOpened handles the webhook event for opened issues.
+func (srv *blathersServer) handleIssueOpened(
+	ctx context.Context, event *github.IssuesEvent,
+) error {
 	ghClient := srv.getGithubClientFromInstallation(
 		ctx,
 		installationID(event.Installation.GetID()),
@@ -279,13 +286,7 @@ func (srv *blathersServer) handleIssuesWebhook(
 	}
 
 	issue := event.GetIssue()
-	builder := githubIssueCommentBuilder{
-		labels: map[string]struct{}{},
-		owner:  event.GetRepo().GetOwner().GetLogin(),
-		repo:   event.GetRepo().GetName(),
-		number: issue.GetNumber(),
-		id:     issue.GetID(),
-	}
+	builder := githubIssueCommentBuilderFromEvent(event)
 	authorName := event.Sender.GetLogin()
 	body := issue.GetBody()
 	if isMember {
@@ -293,6 +294,8 @@ func (srv *blathersServer) handleIssuesWebhook(
 		// Check to see if there is a missing C- label.
 		foundCLabel := false
 		foundALabel := false
+		isReleaseBlocker := false
+		foundBranchLabel := false
 		for _, l := range issue.Labels {
 			if strings.HasPrefix(l.GetName(), "C-") {
 				foundCLabel = true
@@ -300,6 +303,16 @@ func (srv *blathersServer) handleIssuesWebhook(
 			if strings.HasPrefix(l.GetName(), "A-") {
 				foundALabel = true
 			}
+			if strings.HasPrefix(l.GetName(), "branch-") {
+				foundBranchLabel = true
+			}
+			if l.GetName() == "release-blocker" {
+				isReleaseBlocker = true
+			}
+		}
+		if isReleaseBlocker && !foundBranchLabel {
+			builder.addParagraphf("Hi @%s, please add branch-* labels to identify which branch(es) this release-blocker affects.",
+				authorName)
 		}
 		if !foundCLabel {
 			body = strings.ToLower(body)
@@ -420,6 +433,39 @@ func (srv *blathersServer) handleIssuesWebhook(
 
 	builder.setMustComment(true)
 	return builder.finish(ctx, ghClient)
+}
+
+// handleIssueLabelled handles changes to issue labels.
+func (srv *blathersServer) handleIssueLabelled(
+	ctx context.Context, event *github.IssuesEvent,
+) error {
+	ghClient := srv.getGithubClientFromInstallation(ctx, installationID(event.Installation.GetID()))
+	builder := githubIssueCommentBuilderFromEvent(event)
+
+	isReleaseBlocker := false
+	foundBranchLabel := false
+	for _, l := range event.GetIssue().Labels {
+		if strings.HasPrefix(l.GetName(), "branch-") {
+			foundBranchLabel = true
+		}
+		if l.GetName() == "release-blocker" {
+			isReleaseBlocker = true
+		}
+	}
+
+	if foundBranchLabel || !isReleaseBlocker {
+		return nil
+	}
+
+	builder.addParagraphf(
+		"Hi @%s, please add branch-* labels to identify which branch(es) this release-blocker affects.",
+		event.Sender.GetLogin(),
+	)
+
+	if err := builder.finish(ctx, ghClient); err != nil {
+		return wrapf(ctx, err, "failed to finish building issue comment")
+	}
+	return nil
 }
 
 func overrideStatus(currentState, nextState string) bool {
