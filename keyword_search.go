@@ -42,7 +42,7 @@ type board struct {
 }
 
 var teamToBoards = map[string]board{
-	"appdev":         {"cockroachdb", "", "AppDev", "Backlog"},
+	"appdev":         {"cockroachdb", "", "AppDev", "Triage"},
 	"bulk-io":        {"cockroachdb", "cockroach", "Bulk I/O Backlog", "Triage"},
 	"sql-schema":     {"cockroachdb", "cockroach", "SQL Schema", "Triage"},
 	"kv":             {"cockroachdb", "cockroach", "KV Backlog", "Incoming"},
