@@ -258,7 +258,7 @@ func (srv *blathersServer) handleIssuesWebhook(
 	switch event.GetAction() {
 	case "opened":
 		return srv.handleIssueOpened(ctx, event)
-	case "labeled", "unlabeled":
+	case "labeled":
 		return srv.handleIssueLabelled(ctx, event)
 	default:
 		writeLogf(ctx, "not an event we care about")
