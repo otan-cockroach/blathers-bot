@@ -267,9 +267,7 @@ func (srv *blathersServer) handleIssuesWebhook(
 }
 
 // handleIssueOpened handles the webhook event for opened issues.
-func (srv *blathersServer) handleIssueOpened(
-	ctx context.Context, event *github.IssuesEvent,
-) error {
+func (srv *blathersServer) handleIssueOpened(ctx context.Context, event *github.IssuesEvent) error {
 	ghClient := srv.getGithubClientFromInstallation(
 		ctx,
 		installationID(event.Installation.GetID()),
@@ -430,18 +428,20 @@ func (srv *blathersServer) handleIssueLabelled(
 	ghClient := srv.getGithubClientFromInstallation(ctx, installationID(event.Installation.GetID()))
 	builder := githubIssueCommentBuilderFromEvent(event)
 
-	isReleaseBlocker := false
+	isReleaseBlockerAdd := false
 	foundBranchLabel := false
 	for _, l := range event.GetIssue().Labels {
 		if strings.HasPrefix(l.GetName(), "branch-") {
 			foundBranchLabel = true
 		}
-		if l.GetName() == "release-blocker" {
-			isReleaseBlocker = true
+	}
+	if label := event.GetLabel(); label != nil {
+		if label.GetName() == "release-blocker" {
+			isReleaseBlockerAdd = true
 		}
 	}
 
-	if foundBranchLabel || !isReleaseBlocker {
+	if foundBranchLabel || !isReleaseBlockerAdd {
 		return nil
 	}
 
