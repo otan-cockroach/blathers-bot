@@ -610,6 +610,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	if err != nil {
 		return err
 	}
+	mustComment := false
 	if len(commits) > 1 {
 		ais = ais.add(
 			`We notice you have more than one commit in your PR. We try break logical changes into separate commits, ` +
@@ -619,15 +620,16 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	}
 	for _, commit := range commits {
 		if !strings.Contains(commit.GetCommit().GetMessage(), "Release note") {
+			mustComment = true
 			ais = ais.add("Please ensure your git commit message contains a [release note](https://wiki.crdb.io/wiki/spaces/CRDB/pages/186548364/Release+notes).")
 			break
 		}
 	}
 
+	builder.setMustComment(mustComment)
 	if len(ais) == 0 {
 		builder.addParagraph("My owl senses detect your PR is good for review. Please keep an eye out for any test failures in CI.")
 	} else {
-		builder.setMustComment(true)
 		ais = ais.add("When CI has completed, please ensure no errors have appeared.")
 		builder.addParagraphf("Before a member of our team reviews your PR, I have some potential action items for you:\n%s", ais.String())
 	}
