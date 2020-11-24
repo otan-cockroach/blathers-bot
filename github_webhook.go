@@ -534,8 +534,8 @@ func (srv *blathersServer) handlePullRequestWebhook(
 				continue
 			}
 			if state == "CHANGES_REQUESTED" || state == "COMMENTED" {
-				// Let's only do this for @otan for now.
-				if reviewer == "otan" {
+				// Let's only do this for @otan & @irfansharif for now.
+				if reviewer == "otan" || reviewer == "irfansharif" {
 					reviewers = append(reviewers, reviewer)
 				}
 			}
