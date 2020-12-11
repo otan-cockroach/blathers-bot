@@ -15,10 +15,11 @@ import (
 // blacklistedLogins contains a list of organization members to
 // ignore in certain situations.
 var blacklistedLogins = map[string]struct{}{
-	"cockroach-teamcity":  struct{}{},
-	"cockroach-oncall":    struct{}{},
-	"cockroach-roachdash": struct{}{},
-	"crl-monitor-roach":   struct{}{},
+	"cockroach-teamcity":   struct{}{},
+	"cockroach-oncall":     struct{}{},
+	"cockroach-roachdash":  struct{}{},
+	"crl-monitor-roach":    struct{}{},
+	"exalate-issue-sync":   struct{}{},
 }
 
 // listBuilder keeps track of action items needed to be done.
@@ -272,6 +273,12 @@ func (srv *blathersServer) handleIssueOpened(ctx context.Context, event *github.
 		ctx,
 		installationID(event.Installation.GetID()),
 	)
+
+    // These bots all have their own logic to label and tag issues.
+	if _, isBlacklistedLogin := blacklistedLogins[event.GetSender().GetLogin()]; isBlacklistedLogin {
+        writeLogf(ctx, "skipping issue %s as member %s is blacklisted", event.GetIssue(), event.GetSender().GetLogin())
+		return nil
+	}
 
 	isMember, err := isOrgMember(
 		ctx,
