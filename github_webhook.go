@@ -421,7 +421,7 @@ func (srv *blathersServer) handleIssueOpened(ctx context.Context, event *github.
 		builder.addParagraphf("I have CC'd a few people who may be able to assist you:\n%s", assignedReasons.String())
 	}
 	builder.addParagraphf(`If we have not gotten back to your issue within a few business days, you can try the following:
-* Join our [community slack channel](https://cockroa.ch/slack) and ask on #cockroachdb.
+* Join our [community slack channel](https://go.crdb.dev/p/slack) and ask on #cockroachdb.
 * Try find someone from [here](https://github.com/orgs/cockroachdb/people) if you know they worked closely on the area and CC them.`)
 
 	builder.setMustComment(true)
@@ -670,7 +670,7 @@ func (srv *blathersServer) handlePullRequestWebhook(
 				builder.addParagraph(`I was unable to automatically find a reviewer. You can try CCing one of the following members:
 * A person you worked with closely on this PR.
 * The person who created the ticket, or a [CRDB organization member](https://github.com/orgs/cockroachdb/people) involved with the ticket (author, commenter, etc.).
-* Join our [community slack channel](https://cockroa.ch/slack) and ask on #contributors.
+* Join our [community slack channel](https://go.crdb.dev/p/slack) and ask on #contributors.
 * Try find someone else from [here](https://github.com/orgs/cockroachdb/people).`)
 			} else {
 				builder.addLabel("X-blathers-triaged")
