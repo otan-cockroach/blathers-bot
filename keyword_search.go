@@ -24,7 +24,7 @@ var teamToKeyword = map[string][]string{
 var teamToContacts = map[string][]string{
 	"appdev":         {`rafiss`},
 	"bulk-io":        {`cockroachdb/bulk-io`},
-	"sql-schema":     {`lucy-zhang`},
+	"sql-schema":     {`lucy-zhang`, `jordanlewis`},
 	"kv":             {`nvanbenschoten`},
 	"sql-experience": {`solongordon`, `rafiss`},
 	"vectorized":     {`asubiotto`},
@@ -46,7 +46,7 @@ var teamToBoards = map[string]board{
 	"bulk-io":        {"cockroachdb", "cockroach", "Bulk I/O Backlog", "Triage"},
 	"sql-schema":     {"cockroachdb", "cockroach", "SQL Schema", "Triage"},
 	"kv":             {"cockroachdb", "cockroach", "KV Backlog", "Incoming"},
-	"sql-experience": {"cockroachdb", "cockroach", "SQL Experience", "Triage"},
+	"sql-experience": {"cockroachdb", "", "SQL Experience", "Triage"},
 	"vectorized":     {"cockroachdb", "cockroach", "SQL Execution", "Triage"},
 	"observability":  {"cockroachdb", "cockroach", "Observability", "Backlog"},
 	"storage":        {"cockroachdb", "", "Storage", "Incoming"},
