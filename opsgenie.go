@@ -26,7 +26,7 @@ func (srv *blathersServer) FindSupportOncall(
 	flat := true
 	oncalls, err := scheduleCli.GetOnCalls(ctx, &schedule.GetOnCallsRequest{
 		ScheduleIdentifierType: schedule.Name,
-		ScheduleIdentifier:     "Technical Support On Call 9am-6pm",
+		ScheduleIdentifier:     "TSE On Call",
 		Flat:                   &flat,
 	})
 	if err != nil {
