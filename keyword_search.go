@@ -11,13 +11,13 @@ var teamToKeyword = map[string][]string{
 		`(?i)prisma`, `(?i)psycopg2`, `(?i)tableplus`,
 	},
 	"bulk-io":        {`(?i)backup`, `(?i)import\b`, `(?i)export`, `(?i)cockroach dump`, `(?i)restore`, `(?i)changefeed`, `(?i)cdc`},
-	"sql-schema":     {`(?i)(alter|drop)\s+(table|index|database)`},
+	"sql-schema":     {`(?i)(alter|drop)\s+(table|index|database)`, `(?i)(table|database|schema|index|column)\s+descriptor`},
 	"kv":             {`(?i)\bkv\b`, `(?i)HLC`, `(?i)raft`},
 	"sql-experience": {`(?i)sql statement`, `(?i)join\b`, `(?i)pg_`},
 	"vectorized":     {`(?i)vectorize`},
-	"observability":  {`(?i)admin\s+ui\b`, `(?i)web\s+ui\b`},
+	"observability":  {`(?i)admin\s+ui\b`, `(?i)web\s+ui\b`, `(?i)db\s+console`},
 	"storage":        {`(?i)rocks\s*db`, `(?i)pebble`},
-	"optimizer":      {`(?i)explain(^ your problem)`},
+	"optimizer":      {`(?i)explain(^ your problem)`, `(?i)plan`},
 	"cloud":          {`(?i)kubernetes`, `(?i)cloud`},
 }
 
