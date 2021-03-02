@@ -24,7 +24,7 @@ var teamToKeyword = map[string][]string{
 var teamToContacts = map[string][]string{
 	"appdev":         {`rafiss`},
 	"bulk-io":        {`cockroachdb/bulk-io`},
-	"sql-schema":     {`lucy-zhang`, `jordanlewis`},
+	"sql-schema":     {`ajwerner`, `jordanlewis`},
 	"kv":             {`nvanbenschoten`},
 	"sql-experience": {`solongordon`, `rafiss`},
 	"vectorized":     {`asubiotto`},
