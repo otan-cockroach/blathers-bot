@@ -66,6 +66,9 @@ func Server() *blathersServer {
 }
 
 func processGithubAppPrivateKey(base64Key string) (*rsa.PrivateKey, error) {
+	if base64Key == "" {
+		return nil, nil
+	}
 	key, err := base64.StdEncoding.DecodeString(base64Key)
 	if err != nil {
 		return nil, err
