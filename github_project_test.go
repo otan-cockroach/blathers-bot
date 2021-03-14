@@ -2,12 +2,23 @@ package blathers
 
 import (
 	"context"
+	"flag"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
+var flagRunGithubConnectionTest = flag.Bool(
+	"run-github-connection-test",
+	false,
+	"Whether to run tests connecting to Github",
+)
+
 func TestProjectForTeams(t *testing.T) {
+	flag.Parse()
+	if !*flagRunGithubConnectionTest {
+		return
+	}
 	ctx := context.Background()
 	ghClient := srv.getGithubClientFromInstallation(
 		ctx,
