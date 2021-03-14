@@ -71,5 +71,8 @@ func processGithubAppPrivateKey(base64Key string) (*rsa.PrivateKey, error) {
 		return nil, err
 	}
 	data, _ := pem.Decode([]byte(key))
+	if data.Bytes == nil {
+		return nil, nil
+	}
 	return x509.ParsePKCS1PrivateKey(data.Bytes)
 }
