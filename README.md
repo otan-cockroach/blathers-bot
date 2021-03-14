@@ -21,6 +21,9 @@ curl localhost:8080/github_webhook -H 'X-Github-Event: pull_request'  --header "
 ```
 
 ## Deployment
+Deployment is automatic via a trigger.
+
+### Manual
 After merging your change, click "Deploy" on [here](https://console.cloud.google.com/functions/edit/us-central1/blathers-bot?project=cockroach-dev-inf).
 
 ## Re-deliver Payloads
