@@ -443,7 +443,7 @@ func (srv *blathersServer) handleIssueLabelled(
 		}
 	}
 	if label := event.GetLabel(); label != nil {
-		if label.GetName() == "release-blocker" {
+		if label.GetName() == "release-blocker" || label.GetName() == "GA-blocker" {
 			isReleaseBlockerAdd = true
 		}
 	}
