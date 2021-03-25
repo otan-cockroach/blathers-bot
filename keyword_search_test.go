@@ -24,6 +24,12 @@ func TestFindTeamsFromKeywords(t *testing.T) {
 				"sql-experience": {"SQL statement"},
 			},
 		},
+		{
+			`i can't connect to Confluent. something about avro.`,
+			map[string][]string{
+				"cdc": {"Confluent", "avro"},
+			},
+		},
 		// Ensure default templates don't cause anyone to get pinged.
 		{
 			`**Is your feature request related to a problem? Please describe.**
