@@ -3,7 +3,8 @@ package blathers
 import "regexp"
 
 var teamToKeyword = map[string][]string{
-	"bulk-io":    {`(?i)backup`, `(?i)import\b`, `(?i)export`, `(?i)cockroach dump`, `(?i)restore`, `(?i)changefeed`, `(?i)cdc`},
+	"bulk-io":    {`(?i)backup`, `(?i)import\b`, `(?i)export`, `(?i)cockroach dump`, `(?i)restore`},
+	"cdc":        {`(?i)changefeed`, `(?i)changefeeds`, `(?i)changefeedccl`, `(?i)cdc`, `(?i)kafka`, `(?i)confluent`, `(?i)avro`},
 	"sql-schema": {`(?i)(alter|drop)\s+(table|index|database)`, `(?i)(table|database|schema|index|column)\s+descriptor`},
 	"kv":         {`(?i)\bkv\b`, `(?i)HLC`, `(?i)raft`},
 	"sql-experience": {
@@ -24,6 +25,7 @@ var teamToKeyword = map[string][]string{
 
 var teamToContacts = map[string][]string{
 	"bulk-io":        {`cockroachdb/bulk-io`},
+	"cdc":            {`cockroachdb/cdc`},
 	"sql-schema":     {`ajwerner`, `jordanlewis`},
 	"kv":             {`nvanbenschoten`},
 	"sql-experience": {`solongordon`, `rafiss`},
@@ -43,6 +45,7 @@ type board struct {
 
 var teamToBoards = map[string]board{
 	"bulk-io":        {"cockroachdb", "cockroach", "Bulk I/O Backlog", "Triage"},
+	"cdc":            {"cockroachdb", "cockroach", "CDC", "Triage"},
 	"sql-schema":     {"cockroachdb", "cockroach", "SQL Schema", "Triage"},
 	"kv":             {"cockroachdb", "cockroach", "KV Backlog", "Incoming"},
 	"sql-experience": {"cockroachdb", "", "SQL Experience", "Triage"},
