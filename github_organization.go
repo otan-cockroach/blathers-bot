@@ -2,14 +2,18 @@ package blathers
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/go-github/v32/github"
 )
 
 // isOrgMember returns whether a member is part of the given organization.
 func isOrgMember(
-	ctx context.Context, ghClient *github.Client, org string, login string,
+	ctx context.Context, ghClient *github.Client, org string, login string, email string,
 ) (bool, error) {
+	if strings.HasSuffix(email, "@cockroachlabs.com") {
+		return true, nil
+	}
 	isMember, _, err := ghClient.Organizations.IsMember(ctx, org, login)
 	if err != nil {
 		return false, wrapf(ctx, err, "failed getting organization member status")
