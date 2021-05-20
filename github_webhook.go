@@ -443,9 +443,20 @@ func (srv *blathersServer) handleIssueLabelled(
 			foundBranchLabel = true
 		}
 	}
+
 	if label := event.GetLabel(); label != nil {
-		if label.GetName() == "release-blocker" || label.GetName() == "GA-blocker" {
+		name := label.GetName()
+		if name == "release-blocker" || name == "GA-blocker" {
 			isReleaseBlockerAdd = true
+		}
+
+		// For Bulk IO and CDC, should never have one A-/T- label without the other
+		// Assumption: adding labels is idempotent, i.e., re-adding an existing tag is OK
+		if strings.HasSuffix(name, "-bulkio") {
+			builder.addLabel("T-bulkio", "A-bulkio")
+		}
+		if strings.HasSuffix(name, "-cdc") {
+			builder.addLabel("T-cdc", "A-cdc")
 		}
 	}
 

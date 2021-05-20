@@ -38,11 +38,13 @@ func (icb *githubIssueCommentBuilder) addParagraph(paragraph string) *githubIssu
 	return icb
 }
 
-func (icb *githubIssueCommentBuilder) addLabel(label string) *githubIssueCommentBuilder {
+func (icb *githubIssueCommentBuilder) addLabel(labels ...string) *githubIssueCommentBuilder {
 	if icb.labels == nil {
 		icb.labels = map[string]struct{}{}
 	}
-	icb.labels[label] = struct{}{}
+	for _, label := range labels {
+		icb.labels[label] = struct{}{}
+	}
 	return icb
 }
 
