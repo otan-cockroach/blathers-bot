@@ -470,7 +470,9 @@ func (srv *blathersServer) handleIssueLabelled(
 				builder.number,
 				labels,
 			)
-			return wrapf(ctx, err, "failed to add labels %v", labels)
+			if err != nil {
+				return wrapf(ctx, err, "failed to add labels %v", labels)
+			}
 		}
 	}
 
