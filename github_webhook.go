@@ -452,11 +452,27 @@ func (srv *blathersServer) handleIssueLabelled(
 
 		// For Bulk IO and CDC, should never have one A-/T- label without the other
 		// Assumption: adding labels is idempotent, i.e., re-adding an existing tag is OK
+		var labels []string
 		if strings.HasSuffix(name, "-bulkio") {
-			builder.addLabel("T-bulkio", "A-bulkio")
+			labels = append(labels, "A-bulkio")
+			labels = append(labels, "T-bulkio")
 		}
 		if strings.HasSuffix(name, "-cdc") {
-			builder.addLabel("T-cdc", "A-cdc")
+			labels = append(labels, "A-cdc")
+			labels = append(labels, "T-cdc")
+		}
+
+		if len(labels) > 0 {
+			_, _, err := ghClient.Issues.AddLabelsToIssue(
+				ctx,
+				builder.owner,
+				builder.repo,
+				builder.number,
+				labels,
+			)
+			if err != nil {
+				return wrapf(ctx, err, "failed to add labels %v", labels)
+			}
 		}
 	}
 
