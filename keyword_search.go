@@ -55,6 +55,12 @@ var teamToBoards = map[string]board{
 	"optimizer":      {"cockroachdb", "cockroach", "SQL Optimizer", "Triage"},
 }
 
+var teamToLabels = map[string][]string{
+	// There is additional logic in handleIssueLabelled to ensure both A- and T- labels
+	"bulk-io": {"A-bulkio"},
+	"cdc":     {"A-cdc"},
+}
+
 // findTeamsFromKeywords maps from owner to a list of suspect keywords.
 func findTeamsFromKeywords(body string) map[string][]string {
 	// Not efficient at all, but w/e.

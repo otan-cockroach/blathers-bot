@@ -380,6 +380,9 @@ func (srv *blathersServer) handleIssueOpened(ctx context.Context, event *github.
 			if projectID, ok := teamsToProjects[team]; ok {
 				builder.addProject(projectID)
 			}
+			if label, ok := teamToLabels[team]; ok {
+				builder.addLabel(label...)
+			}
 			for _, owner := range teamToContacts[team] {
 				participantToReasons[owner] = append(
 					participantToReasons[owner],
