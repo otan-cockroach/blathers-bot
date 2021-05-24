@@ -28,7 +28,7 @@ var teamToContacts = map[string][]string{
 	"cdc":            {`cockroachdb/cdc`},
 	"sql-schema":     {`ajwerner`, `jordanlewis`},
 	"kv":             {`nvanbenschoten`},
-	"sql-experience": {`solongordon`, `rafiss`},
+	"sql-experience": {`rafiss`},
 	"vectorized":     {`asubiotto`},
 	"observability":  {`dhartunian`},
 	"storage":        {`petermattis`},
