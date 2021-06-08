@@ -4,7 +4,7 @@ import "regexp"
 
 var teamToKeyword = map[string][]string{
 	"bulk-io":    {`(?i)backup`, `(?i)import\b`, `(?i)export`, `(?i)cockroach dump`, `(?i)restore`, `(?i)userfile`, `(?i)pgdump`},
-	"cdc":        {`(?i)changefeed`, `(?i)changefeeds`, `(?i)changefeedccl`, `(?i)cdc`, `(?i)kafka`, `(?i)confluent`, `(?i)avro`},
+	"cdc":        {`(?i)changefeed`, `(?i)changefeeds`, `(?i)changefeedccl`, `(?i)cdc`, `(?i)kafka`, `(?i)confluent`, `(?i)avro`, `(?i)kvfeed`, `(?i)schemafeed`},
 	"sql-schema": {`(?i)(alter|drop)\s+(table|index|database)`, `(?i)(table|database|schema|index|column)\s+descriptor`},
 	"kv":         {`(?i)\bkv\b`, `(?i)HLC`, `(?i)raft`},
 	"sql-experience": {
