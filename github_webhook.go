@@ -244,7 +244,9 @@ var statusHandlers = map[handlerKey]func(ctx context.Context, srv *blathersServe
 	},
 }
 
-// handleIssuesWebhook handles the issue component of a webhook.
+// handleIssuesWebhook handles the issues component of a webhook.
+// This is not to be confused with the "issue" component of a webhook, which
+// has more detailed information about issue timeline updates.
 func (srv *blathersServer) handleIssuesWebhook(
 	ctx context.Context, event *github.IssuesEvent,
 ) error {
@@ -372,18 +374,15 @@ func (srv *blathersServer) handleIssueOpened(ctx context.Context, event *github.
 		for team := range teamsToKeywords {
 			teams = append(teams, team)
 		}
-		teamsToProjects, err := findProjectsForTeams(ctx, ghClient, teams)
-		if err != nil {
-			return wrapf(ctx, err, "error finding relevant projects")
-		}
 		for team, keywords := range teamsToKeywords {
-			if projectID, ok := teamsToProjects[team]; ok {
-				builder.addProject(projectID)
+			info := TeamInfo[team]
+			if info.ProjectID != 0 {
+				builder.addProject(info.ProjectID)
 			}
 			if label, ok := teamToLabels[team]; ok {
 				builder.addLabel(label...)
 			}
-			for _, owner := range teamToContacts[team] {
+			for _, owner := range TeamInfo[team].contacts {
 				participantToReasons[owner] = append(
 					participantToReasons[owner],
 					fmt.Sprintf("found keywords: %s", strings.Join(keywords, ",")),
@@ -463,6 +462,19 @@ func (srv *blathersServer) handleIssueLabelled(
 		if strings.HasSuffix(name, "-cdc") {
 			labels = append(labels, "A-cdc")
 			labels = append(labels, "T-cdc")
+		}
+
+		if team, ok := tlabelToTeam[name]; ok {
+			colID := TeamInfo[team].TriageColumnID
+			if colID != 0 {
+				_, _, err := ghClient.Projects.CreateProjectCard(ctx, colID, &github.ProjectCardOptions{
+					ContentID:   event.Issue.GetID(),
+					ContentType: "Issue",
+				})
+				if err != nil {
+					return wrapf(ctx, err, "error creating project card")
+				}
+			}
 		}
 
 		if len(labels) > 0 {
