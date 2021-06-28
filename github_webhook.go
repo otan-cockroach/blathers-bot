@@ -763,7 +763,7 @@ func (srv *blathersServer) handleProjectCardWebhook(ctx context.Context, event *
 	}
 
 	groups := fullIssueURLRegex.FindStringSubmatch(contentURL)
-	owner, repo := groups[0], groups[1]
+	owner, repo := groups[1], groups[2]
 	number, err := strconv.ParseInt(groups[4], 10, 64)
 	if err != nil {
 		return err

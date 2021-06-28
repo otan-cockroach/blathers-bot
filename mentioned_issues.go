@@ -18,7 +18,7 @@ var (
 	// numberRegex captures #1234 and cockroachdb/cockroach#1234
 	numberRegex = regexp.MustCompile(`(([a-zA-Z_-]+)/([a-zA-Z_-]+))?#(\d+)`)
 	// fullIssueURLRegex captures URLs directing to issues.
-	fullIssueURLRegex = regexp.MustCompile(`github.com/([a-zA-Z_-]+)/([a-zA-Z-_]+)/(pull|issues)/(\d+)`)
+	fullIssueURLRegex = regexp.MustCompile(`github.com/(?:repos/)?([a-zA-Z_-]+)/([a-zA-Z-_]+)/(pull|issues)/(\d+)`)
 )
 
 // findMentionedIssues returns issues that have been mentioned in
