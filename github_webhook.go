@@ -746,15 +746,17 @@ func (srv *blathersServer) handlePullRequestWebhook(
 }
 
 func (srv *blathersServer) handleProjectCardWebhook(ctx context.Context, event *github.ProjectCardEvent) error {
-	if event.GetAction() != "created" {
-		return nil
-	}
-
 	pc := event.GetProjectCard()
 	if pc == nil {
 		return nil
 	}
 
+	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Webhook][Card #%d]", pc.GetID()))
+	writeLogf(ctx, "handling project card action: %s", event.GetAction())
+
+	if event.GetAction() != "created" {
+		return nil
+	}
 	contentURL := pc.GetContentURL()
 	if contentURL == "" {
 		// If there is no content URL, it means that the new project card is
@@ -768,7 +770,7 @@ func (srv *blathersServer) handleProjectCardWebhook(ctx context.Context, event *
 	if err != nil {
 		return err
 	}
-	team, ok := projectIDToTeam[number]
+	team, ok := projectIDToTeam[pc.GetProjectID()]
 	if !ok {
 		return nil
 	}
