@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -92,6 +93,13 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 			return
 		}
 		err = srv.handleStatusWebhook(ctx, event)
+	case *github.ProjectCardEvent:
+		if event.Installation == nil {
+			w.WriteHeader(400)
+			writeLogf(ctx, "no installation")
+			return
+		}
+		err = srv.handleProjectCardWebhook(ctx, event)
 	case *github.PingEvent:
 		fmt.Fprintf(w, "ok")
 	}
@@ -735,4 +743,48 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	}
 	writeLogf(ctx, "completed all checks")
 	return nil
+}
+
+func (srv *blathersServer) handleProjectCardWebhook(ctx context.Context, event *github.ProjectCardEvent) error {
+	if event.GetAction() != "created" {
+		return nil
+	}
+
+	pc := event.GetProjectCard()
+	if pc == nil {
+		return nil
+	}
+
+	contentURL := pc.GetContentURL()
+	if contentURL == "" {
+		// If there is no content URL, it means that the new project card is
+		// a "note", not associated with an issue.
+		return nil
+	}
+
+	groups := fullIssueURLRegex.FindStringSubmatch(contentURL)
+	owner, repo := groups[0], groups[1]
+	number, err := strconv.ParseInt(groups[4], 10, 64)
+	if err != nil {
+		return err
+	}
+	team, ok := projectIDToTeam[number]
+	if !ok {
+		return nil
+	}
+	info := TeamInfo[team]
+	client := srv.getGithubClientFromInstallation(ctx, installationID(event.GetInstallation().GetID()))
+	issue, _, err := client.Issues.Get(ctx, owner, repo, int(number))
+	if err != nil {
+		return err
+	}
+	for _, label := range issue.Labels {
+		if label.GetName() == info.tlabel {
+			// Nothing to do, the T label was already applied
+			return nil
+		}
+	}
+	// Apply the T label to the issue.
+	_, _, err = client.Issues.AddLabelsToIssue(ctx, owner, repo, int(number), []string{info.tlabel})
+	return err
 }
