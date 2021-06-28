@@ -2,7 +2,7 @@ package blathers
 
 import "regexp"
 
-//go:generate go run generate_projects.go
+//go:generate go run generate/generate_projects.go
 
 type teamInfo struct {
 	Owner        string
