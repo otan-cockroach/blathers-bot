@@ -1,6 +1,9 @@
 package blathers
 
-import "regexp"
+import (
+	"regexp"
+	"sync"
+)
 
 //go:generate go run generate/generate_projects.go
 
@@ -133,13 +136,22 @@ var tlabelToTeam map[string]string
 // map from project id to team name
 var projectIDToTeam map[int64]string
 
-func init() {
+// map from project column id to team name
+var triageColIDToTeam map[int64]string
+
+var initTeamMappings sync.Once
+
+func doInitTeamMappings() {
 	tlabelToTeam = make(map[string]string)
 	projectIDToTeam = make(map[int64]string)
+	triageColIDToTeam = make(map[int64]string)
 	for name, info := range TeamInfo {
 		tlabelToTeam[info.tlabel] = name
 		if info.ProjectID != 0 {
 			projectIDToTeam[info.ProjectID] = name
+		}
+		if info.TriageColumnID != 0 {
+			triageColIDToTeam[info.TriageColumnID] = name
 		}
 	}
 

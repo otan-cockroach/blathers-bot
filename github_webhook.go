@@ -49,6 +49,8 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 		writeLogf(ctx, "time: %s", time.Now().Sub(t))
 	}()
 
+	initTeamMappings.Do(doInitTeamMappings)
+
 	var payload []byte
 	var err error
 	// Validate the secret if one is provided.
@@ -763,14 +765,15 @@ func (srv *blathersServer) handleProjectCardWebhook(ctx context.Context, event *
 		// a "note", not associated with an issue.
 		return nil
 	}
-
 	groups := fullIssueURLRegex.FindStringSubmatch(contentURL)
 	owner, repo := groups[1], groups[2]
 	number, err := strconv.ParseInt(groups[4], 10, 64)
 	if err != nil {
 		return err
 	}
-	team, ok := projectIDToTeam[pc.GetProjectID()]
+	team, ok := triageColIDToTeam[pc.GetColumnID()]
+	fmt.Println(triageColIDToTeam)
+	fmt.Println(owner, repo, number, pc.GetColumnID(), ok, team)
 	if !ok {
 		return nil
 	}
