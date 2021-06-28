@@ -772,8 +772,6 @@ func (srv *blathersServer) handleProjectCardWebhook(ctx context.Context, event *
 		return err
 	}
 	team, ok := triageColIDToTeam[pc.GetColumnID()]
-	fmt.Println(triageColIDToTeam)
-	fmt.Println(owner, repo, number, pc.GetColumnID(), ok, team)
 	if !ok {
 		return nil
 	}
