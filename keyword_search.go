@@ -130,11 +130,19 @@ var TeamInfo = map[string]*teamInfo{
 // map from T-foo to team name
 var tlabelToTeam map[string]string
 
+// map from project id to team name
+var projectIDToTeam map[int64]string
+
 func init() {
 	tlabelToTeam = make(map[string]string)
+	projectIDToTeam = make(map[int64]string)
 	for name, info := range TeamInfo {
 		tlabelToTeam[info.tlabel] = name
+		if info.ProjectID != 0 {
+			projectIDToTeam[info.ProjectID] = name
+		}
 	}
+
 }
 
 var teamToLabels = map[string][]string{
