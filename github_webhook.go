@@ -13,9 +13,9 @@ import (
 	"github.com/google/go-github/v32/github"
 )
 
-// blacklistedLogins contains a list of organization members to
+// ignoredLogins contains a list of organization members to
 // ignore in certain situations.
-var blacklistedLogins = map[string]struct{}{
+var ignoredLogins = map[string]struct{}{
 	"cockroach-teamcity":  struct{}{},
 	"cockroach-oncall":    struct{}{},
 	"cockroach-roachdash": struct{}{},
@@ -287,8 +287,8 @@ func (srv *blathersServer) handleIssueOpened(ctx context.Context, event *github.
 	)
 
 	// These bots all have their own logic to label and tag issues.
-	if _, isBlacklistedLogin := blacklistedLogins[event.GetSender().GetLogin()]; isBlacklistedLogin {
-		writeLogf(ctx, "skipping issue %s as member %s is blacklisted", event.GetIssue(), event.GetSender().GetLogin())
+	if _, isIgnoredLogin := ignoredLogins[event.GetSender().GetLogin()]; isIgnoredLogin {
+		writeLogf(ctx, "skipping issue %s as member %s is ignored", event.GetIssue(), event.GetSender().GetLogin())
 		return nil
 	}
 
@@ -624,8 +624,8 @@ func (srv *blathersServer) handlePullRequestWebhook(
 		return nil
 	}
 
-	if _, isBlacklistedLogin := blacklistedLogins[event.GetSender().GetLogin()]; isBlacklistedLogin {
-		writeLogf(ctx, "skipping as member %s is blacklisted", event.GetSender().GetLogin())
+	if _, isIgnoredLogin := ignoredLogins[event.GetSender().GetLogin()]; isIgnoredLogin {
+		writeLogf(ctx, "skipping as member %s is ignored", event.GetSender().GetLogin())
 		return nil
 	}
 
