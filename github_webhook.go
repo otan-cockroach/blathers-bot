@@ -16,12 +16,13 @@ import (
 // ignoredLogins contains a list of organization members to
 // ignore in certain situations.
 var ignoredLogins = map[string]struct{}{
-	"cockroach-teamcity":  struct{}{},
-	"cockroach-oncall":    struct{}{},
-	"cockroach-roachdash": struct{}{},
-	"crl-monitor-roach":   struct{}{},
-	"exalate-issue-sync":  struct{}{},
-	"blathers-crl":        struct{}{},
+	"cockroach-teamcity":  {},
+	"cockroach-oncall":    {},
+	"cockroach-roachdash": {},
+	"crl-monitor-roach":   {},
+	"exalate-issue-sync":  {},
+	"blathers-crl":        {},
+	"blathers-crl[bot]":   {},
 }
 
 // listBuilder keeps track of action items needed to be done.
@@ -444,7 +445,9 @@ func (srv *blathersServer) handleIssueOpened(ctx context.Context, event *github.
 
 var backportRe = regexp.MustCompile(`backport-(.*)`)
 
-func (srv *blathersServer) handlePullRequestLabelled(ctx context.Context, event *github.PullRequestEvent) error {
+func (srv *blathersServer) handlePullRequestLabelled(
+	ctx context.Context, event *github.PullRequestEvent,
+) error {
 	backportMatches := backportRe.FindStringSubmatch(event.GetLabel().GetName())
 	if len(backportMatches) < 2 {
 		return nil
@@ -947,7 +950,9 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	return nil
 }
 
-func (srv *blathersServer) handleProjectCardWebhook(ctx context.Context, event *github.ProjectCardEvent) error {
+func (srv *blathersServer) handleProjectCardWebhook(
+	ctx context.Context, event *github.ProjectCardEvent,
+) error {
 	pc := event.GetProjectCard()
 	if pc == nil {
 		return nil
