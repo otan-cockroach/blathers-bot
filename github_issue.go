@@ -285,7 +285,7 @@ func findRelevantUsersFromAttachedIssues(
 	}
 	for name := range participantToReasons {
 		_, isOrgMember := orgMembers[name]
-		_, isBlacklistedLogin := blacklistedLogins[name]
+		_, isBlacklistedLogin := ignoredLogins[name]
 		if !isOrgMember || isBlacklistedLogin || name == blacklistUserLogin {
 			delete(participantToReasons, name)
 		}
