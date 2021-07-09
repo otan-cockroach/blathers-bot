@@ -83,6 +83,13 @@ func (srv *blathersServer) HandleGithubWebhook(w http.ResponseWriter, r *http.Re
 			return
 		}
 		err = srv.handleIssuesWebhook(ctx, event)
+	case *github.IssueCommentEvent:
+		if event.Installation == nil {
+			w.WriteHeader(400)
+			writeLogf(ctx, "no installation")
+			return
+		}
+		err = srv.handleIssueCommentWebhook(ctx, event)
 	case *github.PullRequestEvent:
 		if event.Installation == nil {
 			w.WriteHeader(400)
@@ -281,6 +288,49 @@ func (srv *blathersServer) handleIssuesWebhook(
 	}
 }
 
+var backportCommandRe = regexp.MustCompile(`blathers backport ([^\\\n\r]+)`)
+
+func (srv *blathersServer) handleIssueCommentWebhook(ctx context.Context, event *github.IssueCommentEvent) error {
+	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Webhook][IssueComment #%d]", event.Issue.GetNumber()))
+	writeLogf(ctx, "handling issue comment action: %s", event.GetAction())
+
+	if event.GetAction() != "created" {
+		writeLogf(ctx, "not an event we care about")
+		return nil
+	}
+
+	if !event.Issue.IsPullRequest() {
+		writeLogf(ctx, "skipping comment on non-PR")
+		return nil
+	}
+
+	matches := backportCommandRe.FindStringSubmatch(event.GetComment().GetBody())
+	if len(matches) < 2 {
+		return nil
+	}
+	words := strings.Split(matches[1], " ")
+
+	backportBranches := make([]string, 0, len(words))
+	for _, word := range words {
+		backportBranches = append(backportBranches, word)
+	}
+	if len(backportBranches) == 0 {
+		return nil
+	}
+
+	ghClient := srv.getGithubClientFromInstallation(
+		ctx,
+		installationID(event.Installation.GetID()),
+	)
+	owner, repo := event.GetRepo().GetOwner().GetLogin(), event.GetRepo().GetName()
+	number := event.GetIssue().GetNumber()
+	pr, _, err := ghClient.PullRequests.Get(ctx, owner, repo, number)
+	if err != nil {
+		return err
+	}
+	return srv.handleBackports(ctx, ghClient, owner, repo, pr, backportBranches)
+}
+
 // handleIssueOpened handles the webhook event for opened issues.
 func (srv *blathersServer) handleIssueOpened(ctx context.Context, event *github.IssuesEvent) error {
 	ghClient := srv.getGithubClientFromInstallation(
@@ -443,203 +493,37 @@ func (srv *blathersServer) handleIssueOpened(ctx context.Context, event *github.
 	return builder.finish(ctx, ghClient)
 }
 
-var backportRe = regexp.MustCompile(`backport-(.*)`)
+var backportRe = regexp.MustCompile(`backport-(\S*)`)
 
-func (srv *blathersServer) handlePullRequestLabelled(
-	ctx context.Context, event *github.PullRequestEvent,
-) error {
-	backportMatches := backportRe.FindStringSubmatch(event.GetLabel().GetName())
-	if len(backportMatches) < 2 {
+func (srv *blathersServer) handlePullRequestClosed(ctx context.Context, event *github.PullRequestEvent) error {
+	if !event.GetPullRequest().GetMerged() {
+		writeLogf(ctx, "skipping closed PR that wasn't merged")
 		return nil
 	}
-
-	branchName := backportMatches[1]
 	ghClient := srv.getGithubClientFromInstallation(ctx, installationID(event.Installation.GetID()))
 	owner, repo := event.GetRepo().GetOwner().GetLogin(), event.GetRepo().GetName()
 
-	builder := githubPullRequestIssueCommentBuilder{
-		reviewers: make(map[string]struct{}),
-		githubIssueCommentBuilder: githubIssueCommentBuilder{
-			labels: map[string]struct{}{},
-			owner:  owner,
-			repo:   repo,
-			number: event.GetNumber(),
-		},
-	}
-
-	builder.addParagraphf(`Encountered an error creating a backport to branch %s.
-Some common things that can go wrong:
-1. The backport branch might have already existed.
-2. There was a merge conflict.
-3. The backport branch contained merge commits.
-You might need to create your backport manually using the [backport](https://github.com/benesch/backport) tool.
-`, branchName)
-
-	originalPR, _, err := ghClient.PullRequests.Get(ctx, owner, repo, event.GetPullRequest().GetNumber())
+	pr, _, err := ghClient.PullRequests.Get(ctx, owner, repo, event.GetPullRequest().GetNumber())
 	if err != nil {
-		builder.addParagraphf("error retrieving original PR %d: %s", event.GetPullRequest().GetNumber(), err.Error())
-		return builder.finish(ctx, ghClient)
-	}
-
-	// Backport algorithm from https://stackoverflow.com/questions/53859199/how-to-cherry-pick-through-githubs-api
-
-	targetBranch, _, err := ghClient.Repositories.GetBranch(ctx, owner, repo, branchName)
-	if err != nil {
-		// Try release-foo.
-		branchName = "release-" + branchName
-		targetBranch, _, err = ghClient.Repositories.GetBranch(ctx, owner, repo, branchName)
-		if err != nil {
-			builder.addParagraphf("error getting backport branch %s: %s", branchName, err.Error())
-			return builder.finish(ctx, ghClient)
-		}
-	}
-
-	commits, _, err := ghClient.PullRequests.ListCommits(ctx, owner, repo,
-		event.GetNumber(), &github.ListOptions{})
-	if err != nil {
-		builder.addParagraphf("error getting PR %d commits: %s", event.GetNumber(), err.Error())
-		return builder.finish(ctx, ghClient)
-	}
-
-	newBranchName := fmt.Sprintf("blathers/backport-%s-%d", targetBranch.GetName(), event.GetNumber())
-	refName := fmt.Sprintf("refs/heads/%s", newBranchName)
-
-	// Create the backport branch. Point it at the target branch to start with.
-	_, _, err = ghClient.Git.CreateRef(ctx, owner, repo, &github.Reference{
-		Ref: &refName,
-		Object: &github.GitObject{
-			SHA: targetBranch.GetCommit().SHA,
-		},
-	})
-	if err != nil {
-		builder.addParagraphf("error creating backport branch %s: %s", refName, err.Error())
-		return builder.finish(ctx, ghClient)
-	}
-	backportBranchSHA := targetBranch.GetCommit().SHA
-	for _, commit := range commits {
-		if len(commit.Parents) > 1 {
-			builder.addParagraph("can't backport merge commits")
-			return builder.finish(ctx, ghClient)
-		}
-		parent := commit.Parents[0]
-
-		// Create a temporary commit whose parent is the parent of the commit
-		// to cherry-pick.
-		// But, set the *contents* of the commit to be the repository as it
-		// looks in the target branch.
-		tmpCommit, _, err := ghClient.Git.CreateCommit(ctx, owner, repo, &github.Commit{
-			Message: github.String("tmp"),
-			Tree: &github.Tree{
-				SHA: targetBranch.GetCommit().GetCommit().GetTree().SHA,
-			},
-			Parents: []*github.Commit{parent},
-		})
-		if err != nil {
-			builder.addParagraphf("error creating temp commit with parent %s: %s", *parent.SHA, err.Error())
-			return builder.finish(ctx, ghClient)
-		}
-
-		// Set the backport branch to point at the temporary commit.
-		_, _, err = ghClient.Git.UpdateRef(ctx, owner, repo, &github.Reference{
-			Ref: github.String(refName),
-			Object: &github.GitObject{
-				SHA: tmpCommit.SHA,
-			},
-		}, true /* force */)
-		if err != nil {
-			builder.addParagraphf("error updating backport branch to sha %s: %s", *tmpCommit.SHA, err.Error())
-			return builder.finish(ctx, ghClient)
-		}
-
-		// Merge the commit we want into the backport branch, just to get the
-		// resultant tree.
-		merge, _, err := ghClient.Repositories.Merge(ctx, owner, repo, &github.RepositoryMergeRequest{
-			Base: github.String(newBranchName),
-			Head: commit.SHA,
-		})
-		if err != nil {
-			builder.addParagraphf("error creating merge commit from %s to %s: %s", *commit.SHA, newBranchName, err.Error())
-			builder.addParagraph("you may need to manually resolve merge conflicts with the backport tool.")
-			return builder.finish(ctx, ghClient)
-		}
-
-		// Now that we know what the tree should be, create the cherry-pick commit.
-		// Note that branchSha is the original from up at the top.
-		cherryPick, _, err := ghClient.Git.CreateCommit(ctx, owner, repo, &github.Commit{
-			Author:  commit.GetCommit().GetAuthor(),
-			Message: commit.Commit.Message,
-			Tree:    &github.Tree{SHA: merge.Commit.Tree.SHA},
-			Parents: []*github.Commit{{
-				SHA: backportBranchSHA,
-			}},
-		})
-		if err != nil {
-			builder.addParagraphf("error creating final cherrypick: %s", err.Error())
-			return builder.finish(ctx, ghClient)
-		}
-		backportBranchSHA = github.String(*cherryPick.SHA)
-
-		// Replace the temp commit with the real commit.
-		_, _, err = ghClient.Git.UpdateRef(ctx, owner, repo, &github.Reference{
-			Ref: github.String(refName),
-			Object: &github.GitObject{
-				SHA: cherryPick.SHA,
-			},
-		}, true /* force */)
-		if err != nil {
-			builder.addParagraphf("error updating temp commit to sha %s: %s", *cherryPick.SHA, err.Error())
-			return builder.finish(ctx, ghClient)
-		}
-	}
-
-	// Create the pull request.
-	pr, _, err := ghClient.PullRequests.Create(ctx, owner, repo, &github.NewPullRequest{
-		Title:               github.String(fmt.Sprintf("%s: %s", branchName, originalPR.GetTitle())),
-		Base:                github.String(branchName),
-		Head:                github.String(newBranchName),
-		MaintainerCanModify: github.Bool(true),
-		Body: github.String(fmt.Sprintf(`Backport %d/%d commits from #%d on behalf of @%s.
-
-/cc @cockroachdb/release
-----
-%s
-----
-`, len(commits), len(commits), originalPR.GetNumber(), originalPR.GetUser().GetLogin(), originalPR.GetBody())),
-	})
-	if err != nil {
-		builder.addParagraphf("error creating PR, but backport branch %s is ready: %s", newBranchName, err.Error())
-		return builder.finish(ctx, ghClient)
-	}
-
-	// Assign the original author to the backport PR, and request the original
-	// reviewers.
-
-	requestedReviewers := originalPR.RequestedReviewers
-	reviewers := make([]string, len(requestedReviewers))
-	for i := range reviewers {
-		reviewers[i] = requestedReviewers[i].GetLogin()
-	}
-	requestedTeams := originalPR.RequestedTeams
-	teamReviewers := make([]string, len(requestedTeams))
-	for i := range teamReviewers {
-		teamReviewers[i] = requestedTeams[i].GetName()
-	}
-
-	if len(reviewers) > 0 || len(teamReviewers) > 0 {
-		if _, _, err = ghClient.PullRequests.RequestReviewers(ctx, owner, repo, pr.GetNumber(), github.ReviewersRequest{
-			Reviewers:     reviewers,
-			TeamReviewers: teamReviewers,
-		}); err != nil {
-			return err
-		}
-	}
-
-	if _, _, err := ghClient.Issues.AddAssignees(ctx, owner, repo, pr.GetNumber(),
-		[]string{originalPR.GetUser().GetLogin()}); err != nil {
 		return err
 	}
 
-	return nil
+	backportBranches := make([]string, 0, len(pr.Labels))
+	for _, label := range pr.Labels {
+		name := label.GetName()
+		backportMatches := backportRe.FindStringSubmatch(name)
+		if len(backportMatches) < 2 {
+			continue
+		}
+
+		backportBranches = append(backportBranches, backportMatches[1])
+	}
+
+	if len(backportBranches) == 0 {
+		return nil
+	}
+
+	return srv.handleBackports(ctx, ghClient, owner, repo, pr, backportBranches)
 }
 
 // handleIssueLabelled handles changes to issue labels.
@@ -738,8 +622,8 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	// We only care about requests being opened, or new PR updates.
 	switch event.GetAction() {
 	case "opened", "synchronize":
-	case "labeled":
-		return srv.handlePullRequestLabelled(ctx, event)
+	case "closed":
+		return srv.handlePullRequestClosed(ctx, event)
 	default:
 		writeLogf(ctx, "not an event we care about")
 		return nil
