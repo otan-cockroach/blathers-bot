@@ -619,6 +619,8 @@ func (srv *blathersServer) handlePullRequestWebhook(
 	ctx = WithDebuggingPrefix(ctx, fmt.Sprintf("[Webhook][PR #%d]", event.GetNumber()))
 	writeLogf(ctx, "handling pull request action: %s", event.GetAction())
 
+	srv.handlePRForBackports(ctx, event)
+
 	// We only care about requests being opened, or new PR updates.
 	switch event.GetAction() {
 	case "opened", "synchronize":

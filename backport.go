@@ -3,7 +3,9 @@ package blathers
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v32/github"
 )
@@ -218,4 +220,77 @@ func (srv *blathersServer) handleBackport(ctx context.Context, ghClient *github.
 
 	return nil
 
+}
+
+func (srv *blathersServer) handleBackportCreated(ctx context.Context, event *github.PullRequestEvent) {
+	ghClient := srv.getGithubClientFromInstallation(
+		ctx,
+		installationID(event.Installation.GetID()),
+	)
+	owner, repo, number := event.GetRepo().GetOwner().GetLogin(), event.GetRepo().GetName(), event.GetNumber()
+	_, _, err := ghClient.Issues.CreateComment(ctx, owner, repo, number, &github.IssueComment{Body: github.String(nudge)})
+	if err != nil {
+		writeLogf(ctx, "failed to create backport nudge comment: %s", err.Error())
+	}
+}
+
+var justificationRe = regexp.MustCompile("[rR]elease [jJ]ustification: ([^\\\n\r]+)")
+
+func (srv *blathersServer) postReleaseJustificationCheck(ctx context.Context, event *github.PullRequestEvent, success bool, title string, summary string) {
+	ghClient := srv.getGithubClientFromInstallation(
+		ctx,
+		installationID(event.Installation.GetID()),
+	)
+	owner, repo := event.GetRepo().GetOwner().GetLogin(), event.GetRepo().GetName()
+	conclusion := "success"
+	if !success {
+		conclusion = "failure"
+	}
+	_, _, err := ghClient.Checks.CreateCheckRun(ctx, owner, repo, github.CreateCheckRunOptions{
+		Name:        "blathers/release-justification",
+		HeadSHA:     event.GetPullRequest().GetHead().GetSHA(),
+		DetailsURL:  github.String("https://cockroachlabs.atlassian.net/wiki/spaces/CRDB/pages/900005932/Backporting+a+change+to+a+release+branch"),
+		Status:      github.String("completed"),
+		Conclusion:  github.String(conclusion),
+		CompletedAt: &github.Timestamp{Time: time.Now()},
+		Output: &github.CheckRunOutput{
+			Title:   github.String(title),
+			Summary: github.String(summary),
+		},
+	})
+	if err != nil {
+		writeLogf(ctx, "failed to post release justification check: %s", err.Error())
+	}
+}
+
+func (srv *blathersServer) handlePRForBackports(ctx context.Context, event *github.PullRequestEvent) {
+	isBackport := strings.HasPrefix(event.GetPullRequest().GetTitle(), "release-")
+
+	switch event.GetAction() {
+	case "opened", "reopened", "synchronize", "edited":
+		var success bool
+		var title, summary string
+		if !isBackport {
+			success = true
+			title = "Release justification not necessary."
+		} else {
+			matches := justificationRe.FindStringSubmatch(event.GetPullRequest().GetBody())
+			if len(matches) < 2 {
+				success = false
+				title = "Release justification not found."
+				summary = `Add a release justification to your PR body of the form:
+
+Release justification: justification for this backport.`
+			} else {
+				success = true
+				title = "Release justification found."
+				summary = matches[1]
+			}
+		}
+		srv.postReleaseJustificationCheck(ctx, event, success, title, summary)
+	}
+
+	if isBackport && event.GetAction() == "opened" {
+		srv.handleBackportCreated(ctx, event)
+	}
 }
