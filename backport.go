@@ -11,8 +11,12 @@ import (
 )
 
 func (srv *blathersServer) handleBackports(
-	ctx context.Context, ghClient *github.Client, owner, repo string,
-	pr *github.PullRequest, backportBranches []string) error {
+	ctx context.Context,
+	ghClient *github.Client,
+	owner, repo string,
+	pr *github.PullRequest,
+	backportBranches []string,
+) error {
 
 	builder := &githubPullRequestIssueCommentBuilder{
 		reviewers: make(map[string]struct{}),
@@ -48,9 +52,15 @@ You might need to create your backport manually using the [backport](https://git
 	return nil
 }
 
-func (srv *blathersServer) handleBackport(ctx context.Context, ghClient *github.Client,
-	builder *githubPullRequestIssueCommentBuilder, owner string, repo string, originalPR *github.PullRequest,
-	branchName string) error {
+func (srv *blathersServer) handleBackport(
+	ctx context.Context,
+	ghClient *github.Client,
+	builder *githubPullRequestIssueCommentBuilder,
+	owner string,
+	repo string,
+	originalPR *github.PullRequest,
+	branchName string,
+) error {
 	// The CockroachDB backport label schema looks like: backport-21.1.x.
 	// But the CockroachDB release branch schema looks like release-21.1.
 	// Strip the .x suffix, and below we'll try with the release- prefix.
@@ -194,10 +204,22 @@ func (srv *blathersServer) handleBackport(ctx context.Context, ghClient *github.
 	// reviewers.
 
 	requestedReviewers := originalPR.RequestedReviewers
-	reviewers := make([]string, len(requestedReviewers))
-	for i := range reviewers {
-		reviewers[i] = requestedReviewers[i].GetLogin()
+	reviewersSet := make(map[string]struct{})
+	for i := range requestedReviewers {
+		reviewersSet[requestedReviewers[i].GetLogin()] = struct{}{}
 	}
+	reviews, err := getReviews(ctx, ghClient, owner, repo, originalPR.GetNumber())
+	if err != nil {
+		return err
+	}
+	for _, review := range reviews {
+		reviewersSet[review.GetUser().GetLogin()] = struct{}{}
+	}
+	reviewers := make([]string, 0, len(reviewersSet))
+	for r := range reviewersSet {
+		reviewers = append(reviewers, r)
+	}
+
 	requestedTeams := originalPR.RequestedTeams
 	teamReviewers := make([]string, len(requestedTeams))
 	for i := range teamReviewers {
@@ -222,7 +244,9 @@ func (srv *blathersServer) handleBackport(ctx context.Context, ghClient *github.
 
 }
 
-func (srv *blathersServer) handleBackportCreated(ctx context.Context, event *github.PullRequestEvent) {
+func (srv *blathersServer) handleBackportCreated(
+	ctx context.Context, event *github.PullRequestEvent,
+) {
 	ghClient := srv.getGithubClientFromInstallation(
 		ctx,
 		installationID(event.Installation.GetID()),
@@ -236,7 +260,9 @@ func (srv *blathersServer) handleBackportCreated(ctx context.Context, event *git
 
 var justificationRe = regexp.MustCompile("[rR]elease [jJ]ustification: ([^\\\n\r]+)")
 
-func (srv *blathersServer) postReleaseJustificationCheck(ctx context.Context, event *github.PullRequestEvent, success bool, title string, summary string) {
+func (srv *blathersServer) postReleaseJustificationCheck(
+	ctx context.Context, event *github.PullRequestEvent, success bool, title string, summary string,
+) {
 	ghClient := srv.getGithubClientFromInstallation(
 		ctx,
 		installationID(event.Installation.GetID()),
@@ -263,7 +289,9 @@ func (srv *blathersServer) postReleaseJustificationCheck(ctx context.Context, ev
 	}
 }
 
-func (srv *blathersServer) handlePRForBackports(ctx context.Context, event *github.PullRequestEvent) {
+func (srv *blathersServer) handlePRForBackports(
+	ctx context.Context, event *github.PullRequestEvent,
+) {
 	isBackport := strings.HasPrefix(event.GetPullRequest().GetTitle(), "release-")
 
 	switch event.GetAction() {
