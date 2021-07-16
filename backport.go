@@ -3,7 +3,9 @@ package blathers
 import (
 	"context"
 	"fmt"
+	"io"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -260,9 +262,10 @@ func (srv *blathersServer) handleBackportCreated(
 
 var justificationRe = regexp.MustCompile("[rR]elease [jJ]ustification: ([^\\\n\r]+)")
 
-func (srv *blathersServer) postReleaseJustificationCheck(
-	ctx context.Context, event *github.PullRequestEvent, success bool, title string, summary string,
-) {
+const backportWiki = "https://cockroachlabs.atlassian.net/wiki/spaces/CRDB/pages/900005932/Backporting+a+change+to+a+release+branch"
+
+func (srv *blathersServer) postBackportCheck(ctx context.Context, event *github.PullRequestEvent, success bool,
+	title string, summary string, details string) {
 	ghClient := srv.getGithubClientFromInstallation(
 		ctx,
 		installationID(event.Installation.GetID()),
@@ -273,21 +276,24 @@ func (srv *blathersServer) postReleaseJustificationCheck(
 		conclusion = "failure"
 	}
 	_, _, err := ghClient.Checks.CreateCheckRun(ctx, owner, repo, github.CreateCheckRunOptions{
-		Name:        "blathers/release-justification",
+		Name:        "blathers/backport-check",
 		HeadSHA:     event.GetPullRequest().GetHead().GetSHA(),
-		DetailsURL:  github.String("https://cockroachlabs.atlassian.net/wiki/spaces/CRDB/pages/900005932/Backporting+a+change+to+a+release+branch"),
+		DetailsURL:  github.String(backportWiki),
 		Status:      github.String("completed"),
 		Conclusion:  github.String(conclusion),
 		CompletedAt: &github.Timestamp{Time: time.Now()},
 		Output: &github.CheckRunOutput{
 			Title:   github.String(title),
 			Summary: github.String(summary),
+			Text:    github.String(details),
 		},
 	})
 	if err != nil {
 		writeLogf(ctx, "failed to post release justification check: %s", err.Error())
 	}
 }
+
+var backportPRRe = regexp.MustCompile(`Backport \d+/\d+ commits from #(\d+)`)
 
 func (srv *blathersServer) handlePRForBackports(
 	ctx context.Context, event *github.PullRequestEvent,
@@ -297,28 +303,87 @@ func (srv *blathersServer) handlePRForBackports(
 	switch event.GetAction() {
 	case "opened", "reopened", "synchronize", "edited":
 		var success bool
-		var title, summary string
+		var title string
+		var details strings.Builder
+		var summary string
 		if !isBackport {
 			success = true
-			title = "Release justification not necessary."
+			title = "Not a backport, nothing to check."
 		} else {
+			summary = fmt.Sprintf("Backports must follow the [backport requirements](%s).", backportWiki)
 			matches := justificationRe.FindStringSubmatch(event.GetPullRequest().GetBody())
+			fmt.Fprintln(&details, "# Release justification")
 			if len(matches) < 2 {
 				success = false
-				title = "Release justification not found."
-				summary = `Add a release justification to your PR body of the form:
+				fmt.Fprintln(&details, `Release justification not found.
 
-Release justification: justification for this backport.`
+Add a release justification to your PR body of the form:
+
+    Release justification: justification for this backport.`)
 			} else {
-				success = true
-				title = "Release justification found."
-				summary = matches[1]
+				fmt.Fprintln(&details, "Release justification found.")
+			}
+
+			if !srv.checkPRBakingTime(ctx, &details, event) {
+				success = false
 			}
 		}
-		srv.postReleaseJustificationCheck(ctx, event, success, title, summary)
+		title = "Backport checks complete."
+		if !success {
+			title = "Backport checks failed."
+		}
+		srv.postBackportCheck(ctx, event, success, title, summary, details.String())
 	}
 
 	if isBackport && event.GetAction() == "opened" {
 		srv.handleBackportCreated(ctx, event)
 	}
+}
+
+func (srv *blathersServer) checkPRBakingTime(ctx context.Context, output io.Writer,
+	event *github.PullRequestEvent) bool {
+	fmt.Fprintln(output, "# Baking duration")
+	matches := backportPRRe.FindStringSubmatch(event.GetPullRequest().GetBody())
+
+	if len(matches) < 2 {
+		fmt.Fprintln(output, `Master PR not found. Make sure your backport PR's body matches the text:
+Backport \d+/\d+ commits from #(\d+)`)
+		return false
+	}
+
+	prNumber, err := strconv.Atoi(matches[1])
+	if err != nil {
+		fmt.Fprintf(output, "Failed to parse PR number: %s\n", err.Error())
+		return false
+	}
+
+	ghClient := srv.getGithubClientFromInstallation(
+		ctx,
+		installationID(event.Installation.GetID()),
+	)
+	owner, repo := event.GetRepo().GetOwner().GetLogin(), event.GetRepo().GetName()
+
+	pr, _, err := ghClient.PullRequests.Get(ctx, owner, repo, prNumber)
+	if err != nil {
+		fmt.Fprintf(output, "Failed to fetch GitHub PR #%d: %s\n", prNumber, err.Error())
+		return false
+	}
+
+	if !pr.GetMerged() {
+		fmt.Fprintf(output, `Master PR #%d is not yet merged.
+
+**Backport not recommended** unless this is an emergency.`, prNumber)
+		return false
+	}
+	merged := pr.GetMergedAt()
+	since := time.Since(merged)
+	if since < time.Hour*24*14 {
+		fmt.Fprintf(output, `Master PR #%d was merged %s ago, which is less than the 14 day baking period.
+
+**Backport not recommended** unless this is an emergency.`,
+			prNumber, since)
+		return false
+	}
+	fmt.Fprintf(output, "Master PR #%d was merged %s ago, which is more than the 14 day baking period.", prNumber, since)
+	return true
 }
