@@ -93,18 +93,20 @@ func (srv *blathersServer) handleBackport(
 	newBranchName := fmt.Sprintf("blathers/backport-%s-%d", targetBranch.GetName(), originalPR.GetNumber())
 	refName := fmt.Sprintf("refs/heads/%s", newBranchName)
 
+	backportBranchSHA := targetBranch.GetCommit().GetSHA()
+	backportBranchTreeSHA := targetBranch.GetCommit().GetCommit().GetTree().GetSHA()
+
 	// Create the backport branch. Point it at the target branch to start with.
 	_, _, err = ghClient.Git.CreateRef(ctx, owner, repo, &github.Reference{
 		Ref: &refName,
 		Object: &github.GitObject{
-			SHA: targetBranch.GetCommit().SHA,
+			SHA: github.String(backportBranchSHA),
 		},
 	})
 	if err != nil {
 		builder.addParagraphf("error creating backport branch %s: %s", refName, err.Error())
 		return err
 	}
-	backportBranchSHA := targetBranch.GetCommit().SHA
 	for _, commit := range commits {
 		if len(commit.Parents) > 1 {
 			builder.addParagraph("can't backport merge commits")
@@ -119,7 +121,7 @@ func (srv *blathersServer) handleBackport(
 		tmpCommit, _, err := ghClient.Git.CreateCommit(ctx, owner, repo, &github.Commit{
 			Message: github.String("tmp"),
 			Tree: &github.Tree{
-				SHA: targetBranch.GetCommit().GetCommit().GetTree().SHA,
+				SHA: github.String(backportBranchTreeSHA),
 			},
 			Parents: []*github.Commit{parent},
 		})
@@ -159,14 +161,19 @@ func (srv *blathersServer) handleBackport(
 			Message: commit.Commit.Message,
 			Tree:    &github.Tree{SHA: merge.Commit.Tree.SHA},
 			Parents: []*github.Commit{{
-				SHA: backportBranchSHA,
+				SHA: github.String(backportBranchSHA),
 			}},
 		})
 		if err != nil {
 			builder.addParagraphf("error creating final cherrypick: %s", err.Error())
 			return err
 		}
-		backportBranchSHA = github.String(*cherryPick.SHA)
+
+		// Update the information about the tip of the backport branch, so the
+		// next iteration of the loop can create a commit that's parented by the
+		// cherry-picked commit we've created (both its commit and its tree).
+		backportBranchSHA = cherryPick.GetSHA()
+		backportBranchTreeSHA = cherryPick.GetTree().GetSHA()
 
 		// Replace the temp commit with the real commit.
 		_, _, err = ghClient.Git.UpdateRef(ctx, owner, repo, &github.Reference{
