@@ -309,12 +309,12 @@ func (srv *blathersServer) handlePRForBackports(
 
 	switch event.GetAction() {
 	case "opened", "reopened", "synchronize", "edited":
-		var success bool
 		var title string
 		var details strings.Builder
 		var summary string
+		// Assume check succeeded until disproved.
+		success := true
 		if !isBackport {
-			success = true
 			title = "Not a backport, nothing to check."
 		} else {
 			summary = fmt.Sprintf("Backports must follow the [backport requirements](%s).", backportWiki)
