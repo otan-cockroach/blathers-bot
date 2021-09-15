@@ -271,8 +271,14 @@ var justificationRe = regexp.MustCompile("[rR]elease [jJ]ustification: ([^\\\n\r
 
 const backportWiki = "https://cockroachlabs.atlassian.net/wiki/spaces/CRDB/pages/900005932/Backporting+a+change+to+a+release+branch"
 
-func (srv *blathersServer) postBackportCheck(ctx context.Context, event *github.PullRequestEvent, success bool,
-	title string, summary string, details string) {
+func (srv *blathersServer) postBackportCheck(
+	ctx context.Context,
+	event *github.PullRequestEvent,
+	success bool,
+	title string,
+	summary string,
+	details string,
+) {
 	ghClient := srv.getGithubClientFromInstallation(
 		ctx,
 		installationID(event.Installation.GetID()),
@@ -300,7 +306,9 @@ func (srv *blathersServer) postBackportCheck(ctx context.Context, event *github.
 	}
 }
 
-var backportPRRe = regexp.MustCompile(`Backport \d+/\d+ commits from #(\d+)`)
+const backportPRReText = `Backport \d+/\d+ commits from.*#(\d+)`
+
+var backportPRRe = regexp.MustCompile(backportPRReText)
 
 func (srv *blathersServer) handlePRForBackports(
 	ctx context.Context, event *github.PullRequestEvent,
@@ -347,14 +355,16 @@ Add a release justification to your PR body of the form:
 	}
 }
 
-func (srv *blathersServer) checkPRBakingTime(ctx context.Context, output io.Writer,
-	event *github.PullRequestEvent) bool {
+func (srv *blathersServer) checkPRBakingTime(
+	ctx context.Context, output io.Writer, event *github.PullRequestEvent,
+) bool {
 	fmt.Fprintln(output, "# Baking duration")
 	matches := backportPRRe.FindStringSubmatch(event.GetPullRequest().GetBody())
 
 	if len(matches) < 2 {
-		fmt.Fprintln(output, `Master PR not found. Make sure your backport PR's body matches the text:
-Backport \d+/\d+ commits from #(\d+)`)
+		fmt.Fprintf(output, `Master PR not found. Make sure your backport PR's body matches the text:
+%s
+`, backportPRReText)
 		return false
 	}
 
